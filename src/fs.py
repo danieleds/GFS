@@ -8,10 +8,13 @@ import errno
 
 from fuse import FUSE, FuseOSError, Operations
 
+from semanticfs import SemanticFS
 
-class SemanticFS(Operations):
+
+class SemanticFSFuse(Operations):
     def __init__(self, root):
         self.root = root
+        self.semfs = SemanticFS(root)
 
     # Helpers
     # =======
@@ -20,14 +23,14 @@ class SemanticFS(Operations):
         if partial.startswith("/"):
             partial = partial[1:]
         path = os.path.join(self.root, partial)
+
         return path
 
     # Filesystem methods
     # ==================
 
     def access(self, path, mode):
-        full_path = self._full_path(path)
-        if not os.access(full_path, mode):
+        if not self.semfs.access(path, mode):
             raise FuseOSError(errno.EACCES)
 
     def chmod(self, path, mode):
@@ -128,7 +131,7 @@ class SemanticFS(Operations):
 
 
 def main(mountpoint, root):
-    FUSE(SemanticFS(root), mountpoint, nothreads=True, foreground=True)
+    FUSE(SemanticFSFuse(root), mountpoint, nothreads=True, foreground=True)
 
 if __name__ == '__main__':
     main(sys.argv[2], sys.argv[1])
