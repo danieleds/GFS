@@ -34,16 +34,13 @@ class SemanticFSFuse(Operations):
             raise FuseOSError(errno.EACCES)
 
     def chmod(self, path, mode):
-        full_path = self._full_path(path)
-        return os.chmod(full_path, mode)
+        return self.semfs.chmod(path, mode)
 
     def chown(self, path, uid, gid):
-        full_path = self._full_path(path)
-        return os.chown(full_path, uid, gid)
+        return self.semfs.chown(path, uid, gid)
 
     def getattr(self, path, fh=None):
-        full_path = self._full_path(path)
-        st = os.lstat(full_path)
+        st = self.semfs.lstat(path)
         return dict((key, getattr(st, key)) for key in ('st_atime', 'st_ctime',
                      'st_gid', 'st_mode', 'st_mtime', 'st_nlink', 'st_size', 'st_uid'))
 

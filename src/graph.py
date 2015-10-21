@@ -40,6 +40,21 @@ class Graph:
         assert (name in self._adjacency_out) == (name in self._adjacency_in)
         return name in self._adjacency_out
 
+    def has_arc(self, from_node, to_node) -> bool:
+        assert (to_node in self._adjacency_out[from_node]) == (from_node in self._adjacency_in[to_node])
+        return to_node in self._adjacency_out[from_node]
+
+    def has_path(self, nodes) -> bool:
+        for i, node in nodes:
+            if self.has_node(node):
+                if i == 0:
+                    continue
+                elif not self.has_arc(nodes[i-1], node):
+                    return False
+            else:
+                return False
+        return True
+
     def add_arc(self, from_node, to_node):
         if not (self.has_node(from_node) and self.has_node(to_node)):
             raise ValueError('Node is missing')
