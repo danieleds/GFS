@@ -150,9 +150,11 @@ class SemanticFS(Operations):
         for info in self._semantic_path_info(path):
             # FIXME Potrebbe non esistere e generare un errore: in tal caso, deve restituire FALSE
             folder = self._get_semantic_folder(info['entrypoint'])
-            if not folder.filetags.has_file(info['file']):
+            if info['file'] != '' and not folder.filetags.has_file(info['file']):
                 return False
-            if not (folder.graph.has_path(info['tags']) and folder.filetags.has_tags(info['file'], info['tags'])):
+            if not folder.graph.has_path(info['tags']):
+                return False
+            if info['file'] != '' and not folder.filetags.has_tags(info['file'], info['tags']):
                 return False
 
         return os.path.lexists(self._datastore_path(path))
@@ -161,6 +163,7 @@ class SemanticFS(Operations):
     # ==================
 
     def access(self, path, mode):
+        logger.debug("access(%s)", path)
         dspath = self._datastore_path(path)
         if not os.access(dspath, mode):
             raise FuseOSError(errno.EACCES)
