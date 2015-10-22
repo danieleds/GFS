@@ -68,6 +68,15 @@ class FilesTagsAssociation:
 
         return self._files[filename].issuperset(tags)
 
+    def files(self):
+        return self._files.keys()
+
+    def tags(self, filename):
+        if filename not in self._files:
+            raise ValueError('File name doesn\'t exists within the namespace')
+
+        return self._files[filename]
+
     def tagged_files(self, tags) -> list:
         lst = []
         for filename, filetags in self._files.items():
