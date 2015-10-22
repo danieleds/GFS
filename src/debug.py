@@ -14,7 +14,6 @@ def main(operation, path):
 
 
 def _get_semantic_folder(path):
-    # FIXME Error check: if not exists??
     storedir = path
     graph_file = os.path.join(storedir, SemanticFS.SEMANTIC_FS_GRAPH_FILE_NAME)
     assoc_file = os.path.join(storedir, SemanticFS.SEMANTIC_FS_ASSOC_FILE_NAME)

@@ -95,11 +95,14 @@ class SemanticFS(Operations):
             if prev_was_semantic and not curr_is_semantic:
                 semantic_endpoints.append(os.sep.join(components[0:i+1]))
             prev_was_semantic = curr_is_semantic
+        assert not PathInfo.is_semantic_name(components[-1]) or os.sep.join(components) not in semantic_endpoints
         if len(components) > 0 and PathInfo.is_semantic_name(components[-1]):
             semantic_endpoints.append(os.sep.join(components))
-
+            
         for subpath in semantic_endpoints:
             pathinfo = PathInfo(subpath)
+            assert pathinfo.is_tag or pathinfo.is_tagged_file or pathinfo.is_entrypoint
+
             # FIXME Potrebbe non esistere e generare un errore: in tal caso, deve restituire FALSE
             folder = self._get_semantic_folder(pathinfo.entrypoint)
             if pathinfo.is_tagged_file and not folder.filetags.has_file(pathinfo.file):
