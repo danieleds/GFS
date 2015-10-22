@@ -13,7 +13,7 @@ class FilesTagsAssociation:
         # FIXME Could expose to code injection: see http://docs.python.org/library/pickle.html
         data = pickle.loads(value)
         if isinstance(data, dict):
-            self._files = value
+            self._files = data
         else:
             raise ValueError('Serialized data is not valid')
 
@@ -68,7 +68,7 @@ class FilesTagsAssociation:
 
         return self._files[filename].issuperset(tags)
 
-    def tagged_files(self, tags):
+    def tagged_files(self, tags) -> list:
         lst = []
         for filename, filetags in self._files.items():
             if filetags.issuperset(tags):

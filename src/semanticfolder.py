@@ -40,19 +40,19 @@ class SemanticFolder(object):
         :return:
         """
         graph = Graph()
-        with open(graph_file, 'r') as f:
+        with open(graph_file, 'rb') as f:
             graph.deserialize(f.read())
 
         filetags = FilesTagsAssociation()
-        with open(assoc_file, 'r') as f:
+        with open(assoc_file, 'rb') as f:
             filetags.deserialize(f.read())
 
         # FIXME Cache it
         return cls(path, graph, filetags)
 
     def to_filename(self, graph_file, assoc_file):
-        with open(graph_file, 'w') as f:
+        with open(graph_file, 'wb') as f:
             f.write(self.graph.serialize())
 
-        with open(assoc_file, 'w') as f:
+        with open(assoc_file, 'wb') as f:
             f.write(self.filetags.serialize())

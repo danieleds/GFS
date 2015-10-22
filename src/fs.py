@@ -11,11 +11,13 @@ from fuse import FUSE, FuseOSError, Operations
 
 from semanticfolder import SemanticFolder
 
+logging.basicConfig(level=logging.DEBUG)
 logger = logging.getLogger('SemanticFSLogger')
-logger.setLevel(logging.DEBUG)
 
 
 class SemanticFS(Operations):
+    SEMANTIC_PREFIX = '_'
+
     def __init__(self, datastore_root):
         self._dsroot = datastore_root
         # self.root = datastore_root
@@ -25,7 +27,7 @@ class SemanticFS(Operations):
 
     @staticmethod
     def _is_semantic_name(name):
-        return name.startswith('$')
+        return name.startswith(SemanticFS.SEMANTIC_PREFIX)
 
     @staticmethod
     def _is_tag(path):
@@ -46,7 +48,7 @@ class SemanticFS(Operations):
             return False
 
     @staticmethod
-    def _is_semantic_file(path):
+    def _is_tagged_file(path):
         """
         /a/_b/_c -> false (it's a tag)
         /a/_b/_c/ -> false (it's a tag)
@@ -129,14 +131,14 @@ class SemanticFS(Operations):
     def _get_semantic_folder(self, path):
         # FIXME Error check: if not exists??
         storedir = self._datastore_path(path)
-        graph_file = os.path.join(storedir, '$$_SEMANTIC_FS_GRAPH_FILE_$$')
-        assoc_file = os.path.join(storedir, '$$_SEMANTIC_FS_ASSOC_FILE_$$')
+        graph_file = os.path.join(storedir, SemanticFS.SEMANTIC_PREFIX + '$$_SEMANTIC_FS_GRAPH_FILE_$$')
+        assoc_file = os.path.join(storedir, SemanticFS.SEMANTIC_PREFIX + '$$_SEMANTIC_FS_ASSOC_FILE_$$')
         return SemanticFolder.from_filename(graph_file, assoc_file, path)
 
     def _save_semantic_folder(self, semfolder: SemanticFolder):
         storedir = self._datastore_path(semfolder.path)
-        graph_file = os.path.join(storedir, '$$_SEMANTIC_FS_GRAPH_FILE_$$')
-        assoc_file = os.path.join(storedir, '$$_SEMANTIC_FS_ASSOC_FILE_$$')
+        graph_file = os.path.join(storedir, SemanticFS.SEMANTIC_PREFIX + '$$_SEMANTIC_FS_GRAPH_FILE_$$')
+        assoc_file = os.path.join(storedir, SemanticFS.SEMANTIC_PREFIX + '$$_SEMANTIC_FS_ASSOC_FILE_$$')
         semfolder.to_filename(graph_file, assoc_file)
 
     def _exists(self, path) -> bool:
@@ -148,6 +150,8 @@ class SemanticFS(Operations):
         for info in self._semantic_path_info(path):
             # FIXME Potrebbe non esistere e generare un errore: in tal caso, deve restituire FALSE
             folder = self._get_semantic_folder(info['entrypoint'])
+            if not folder.filetags.has_file(info['file']):
+                return False
             if not (folder.graph.has_path(info['tags']) and folder.filetags.has_tags(info['file'], info['tags'])):
                 return False
 
@@ -170,15 +174,10 @@ class SemanticFS(Operations):
         return os.chown(dspath, uid, gid)
 
     def getattr(self, path, fh=None):
-        print("getattr " + path)
-        logger.debug("getattr(%s)", path)
         if not self._exists(path):
-            logger.debug("getattr(%s): FileNotFoundError", path)
             raise FuseOSError(errno.ENOENT)
 
-        print("aaaaaa")
         dspath = self._datastore_path(path)
-        print(dspath)
         st = os.lstat(dspath)
         return dict((key, getattr(st, key)) for key in ('st_atime', 'st_ctime',
                                                         'st_gid', 'st_mode', 'st_mtime',
@@ -214,12 +213,59 @@ class SemanticFS(Operations):
         return os.mknod(self._full_path(path), mode, dev)
 
     def rmdir(self, path):
-        full_path = self._full_path(path)
-        return os.rmdir(full_path)
+        """
+         * Standard directory: standard behavior
+         * Entry point: standard behavior
+         * Tag:
+            - if path points to a tag directly under the entry point,
+              it completely deletes the tag. Fails if tag is not empty.
+            - if path points to a tag contained within another tag,
+              it removes the corresponding link in the graph. Doesn't
+              fail if the tag is not empty.
+         * Tagged folder:
+            - if path points to a folder directly under the entry poiny,
+              it completely deletes the folder. Fails if the folder is not
+              empty, as would do the standard os call.
+            - if path points to a folder with one or more tags, remove
+              from the folder the last tag in the path. Doesn't fail if
+              the folder is not empty.
+        :param path:
+        :return:
+        """
+        if SemanticFS._is_tag(path):
+            pathinfo = self._semantic_path_info(path)[-1]
+            semfolder = self._get_semantic_folder(pathinfo['entrypoint'])
+            assert len(pathinfo['tags']) >= 1
+
+            if len(pathinfo['tags']) == 1:
+                os.rmdir(self._datastore_path(path))
+                semfolder.graph.remove_node(pathinfo['tags'][-1])
+            else:
+                semfolder.graph.remove_arc(pathinfo['tags'][-2], pathinfo['tags'][-1])
+
+        elif SemanticFS._is_entrypoint(path):
+            os.rmdir(self._datastore_path(path))
+
+        elif SemanticFS._is_tagged_file(path):
+            pathinfo = self._semantic_path_info(path)[-1]
+            semfolder = self._get_semantic_folder(pathinfo['entrypoint'])
+            assert len(pathinfo['file']) > 0
+
+            if len(pathinfo['tags']) == 0:
+                # If it's directly under the entry point, delete it.
+                os.rmdir(self._datastore_path(path)) # Raises error if dir is not empty
+                semfolder.filetags.remove_file(pathinfo['file'])
+            else:
+                # If it's a tagged path, remove the last tag.
+                semfolder.filetags.discard_tag(pathinfo['file'], pathinfo['tags'][-1])
+
+        else:
+            os.rmdir(self._datastore_path(path))
 
     def mkdir(self, path, mode):
         if SemanticFS._is_tag(path):
             # Creating a new tag
+            logger.debug("Creating tag: %s", path)
             pathinfo = self._semantic_path_info(path)[-1]
             semfolder = self._get_semantic_folder(pathinfo['entrypoint'])
 
@@ -235,10 +281,13 @@ class SemanticFS(Operations):
 
         elif SemanticFS._is_entrypoint(path):
             # Creating a new entry point
+            logger.debug("Creating entry point: %s", path)
             os.mkdir(self._datastore_path(path), mode)
             self._save_semantic_folder(SemanticFolder(path))
 
-        elif SemanticFS._is_semantic_file(path):
+        elif SemanticFS._is_tagged_file(path):
+            # Adding a standard folder to a semantic directory
+            logger.debug("Adding standard folder to semantic dir: %s", path)
             pathinfo = self._semantic_path_info(path)[-1]
             semfolder = self._get_semantic_folder(pathinfo['entrypoint'])
 

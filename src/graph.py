@@ -13,7 +13,7 @@ class Graph:
     def deserialize(self, value):
         # FIXME Could expose to code injection: see http://docs.python.org/library/pickle.html
         data = pickle.loads(value)
-        if isinstance(data, list) and data.len(data) == 2:
+        if isinstance(data, list) and len(data) == 2:
             self._adjacency_out, self._adjacency_in = data
         else:
             raise ValueError('Serialized data is not valid')
@@ -72,3 +72,15 @@ class Graph:
         assert isinstance(self._adjacency_in[to_node], set)
         self._adjacency_out[from_node].remove(to_node)
         self._adjacency_in[to_node].remove(from_node)
+
+    def incoming_arcs(self, node) -> list:
+        if not self.has_node(node):
+            raise ValueError('Node is missing')
+
+        return self._adjacency_in[node]
+
+    def outgoing_arcs(self, node) -> list:
+        if not self.has_node(node):
+            raise ValueError('Node is missing')
+
+        return self._adjacency_out[node]
