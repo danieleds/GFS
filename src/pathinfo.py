@@ -13,7 +13,7 @@ class PathInfo(object):
         if len(components) >= 1 and PathInfo.is_semantic_name(components[-1]):
             # /a/_b/_c
             last_nonsemantic_idx = next(
-                (i for i, name in reversed(list(enumerate(components))) if PathInfo.is_semantic_name(name)), -1)
+                (i for i, name in reversed(list(enumerate(components))) if not PathInfo.is_semantic_name(name)), -1)
             self.__entrypoint = os.sep.join(components[0:last_nonsemantic_idx+2])
             self.__tags = components[last_nonsemantic_idx+2:]
             self.__file = ''
@@ -22,7 +22,7 @@ class PathInfo(object):
             # /a/_b/c
             assert not PathInfo.is_semantic_name(components[-1])
             last_nonsemantic_idx = next(
-                (i for i, name in reversed(list(enumerate(components[0:-1]))) if PathInfo.is_semantic_name(name)), -1)
+                (i for i, name in reversed(list(enumerate(components[0:-1]))) if not PathInfo.is_semantic_name(name)), -1)
             self.__entrypoint = os.sep.join(components[0:last_nonsemantic_idx+2])
             self.__tags = components[last_nonsemantic_idx+2:-1]
             self.__file = components[-1]
@@ -50,14 +50,36 @@ class PathInfo(object):
 
     @property
     def is_tag(self) -> bool:
+        """
+        Returns True if the provided path points to a tag. The path doesn't necessarily need to exist.
+        Any trailing path separator is ignored.
+        For example, returns True for "/a/_b/_c", "/a/_b/_c/_d", but False for "/a/_b/".
+        :param path:
+        :return:
+        """
         return self.entrypoint != '' and len(self.tags) > 0 and self.file == ''
 
     @property
     def is_entrypoint(self) -> bool:
+        """
+        Returns True if the provided path points to an entry point. The path doesn't necessarily need to exist.
+        Any trailing path separator is ignored.
+        For example, returns True for "/_a", "/a/_b", "/a/_b/_c/d/_e", but False for "/a", "a/_b/_c".
+        :param path:
+        :return:
+        """
         return self.entrypoint != '' and len(self.tags) == 0 and self.file == ''
 
     @property
     def is_tagged_file(self) -> bool:
+        """
+        Returns True if the provided path points to a standard file or folder within a semantic directory.
+        The path doesn't necessarily need to exist.
+        Any trailing path separator is ignored.
+        For example, returns True for "/a/_b/x", "/a/_b/_c/x", but False for "/a/_b/_c", "/a/_b", "/a/b".
+        :param path:
+        :return:
+        """
         return self.entrypoint != '' and self.file != ''
 
     @staticmethod

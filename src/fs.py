@@ -27,54 +27,6 @@ class SemanticFS(Operations):
 
     # Helpers
     # =======
-    '''
-    @staticmethod
-    def _is_tag(path) -> bool:
-        """
-        Returns True if the provided path points to a tag. The path doesn't necessarily need to exist.
-        Any trailing path separator is ignored.
-        For example, returns True for "/a/_b/_c", "/a/_b/_c/_d", but False for "/a/_b/".
-        :param path:
-        :return:
-        """
-        components = os.path.normpath(path).split(os.sep)
-        return len(components) >= 2 \
-               and PathInfo.is_semantic_name(components[-1]) \
-               and PathInfo.is_semantic_name(components[-2])
-
-    @staticmethod
-    def _is_entrypoint(path) -> bool:
-        """
-        Returns True if the provided path points to an entry point. The path doesn't necessarily need to exist.
-        Any trailing path separator is ignored.
-        For example, returns True for "/_a", "/a/_b", "/a/_b/_c/d/_e", but False for "/a", "a/_b/_c".
-        :param path:
-        :return:
-        """
-        components = os.path.normpath(path).split(os.sep)
-        if len(components) == 1 and PathInfo.is_semantic_name(components[-1]):
-            return True
-        elif len(components) >= 2 and PathInfo.is_semantic_name(components[-1]) \
-                and not PathInfo.is_semantic_name(components[-2]):
-            return True
-        else:
-            return False
-
-    @staticmethod
-    def _is_tagged_file(path) -> bool:
-        """
-        Returns True if the provided path points to a standard file or folder within a semantic directory.
-        The path doesn't necessarily need to exist.
-        Any trailing path separator is ignored.
-        For example, returns True for "/a/_b/x", "/a/_b/_c/x", but False for "/a/_b/_c", "/a/_b", "/a/b".
-        :param path:
-        :return:
-        """
-        components = os.path.normpath(path).split(os.sep)
-        return len(components) >= 2 \
-               and not PathInfo.is_semantic_name(components[-1]) \
-               and PathInfo.is_semantic_name(components[-2])
-    '''
 
     def _datastore_path(self, virtualpath) -> str:
         """
@@ -206,7 +158,7 @@ class SemanticFS(Operations):
                                                         'st_nlink', 'st_size', 'st_uid'))
 
     def readdir(self, path, fh):
-        dirents = ['.', '..']
+        dirents = []
         storepath = self._datastore_path(path)
 
         if os.path.isdir(storepath):
@@ -214,14 +166,18 @@ class SemanticFS(Operations):
             pathinfo = PathInfo(path)
             if pathinfo.is_tag:
                 folder = self._get_semantic_folder(pathinfo.entrypoint)
+                dirents.extend(folder.graph.outgoing_arcs(pathinfo.tags[-1]))
                 dirents.extend(folder.filetags.tagged_files(pathinfo.tags))
             elif pathinfo.is_entrypoint:
                 dirents.extend(os.listdir(storepath))
             else:
                 dirents.extend(os.listdir(storepath))
 
-        clean_dirents = [x for x in dirents if not SemanticFS._is_reserved_name(x)]
-        for r in clean_dirents:
+            # Remove reserved names and already traversed tags
+            dirents = [x for x in dirents if not SemanticFS._is_reserved_name(x)
+                       and x not in pathinfo.tags]
+
+        for r in ['.', '..'] + dirents:
             yield r
 
     def readlink(self, path):
@@ -288,6 +244,9 @@ class SemanticFS(Operations):
         pathinfo = PathInfo(path)
         if pathinfo.is_tag:
             # Creating a new tag
+            if pathinfo.tags[-1] in pathinfo.tags[0:-1]:
+                raise FuseOSError(errno.EEXIST)
+
             logger.debug("Creating tag: %s", path)
             semfolder = self._get_semantic_folder(pathinfo.entrypoint)
 
