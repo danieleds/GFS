@@ -26,18 +26,37 @@ class SemanticFS(Operations):
     # =======
 
     @staticmethod
-    def _is_semantic_name(name):
+    def _is_semantic_name(name) -> bool:
+        """
+        Returns True if the name is a semantic name (stars with the semantic prefix)
+        :param name: file name to check (not a path)
+        :return:
+        """
         return name.startswith(SemanticFS.SEMANTIC_PREFIX)
 
     @staticmethod
-    def _is_tag(path):
+    def _is_tag(path) -> bool:
+        """
+        Returns True if the provided path points to a tag. The path doesn't necessarily need to exist.
+        Any trailing path separator is ignored.
+        For example, returns True for "/a/_b/_c", "/a/_b/_c/_d", but False for "/a/_b/".
+        :param path:
+        :return:
+        """
         components = os.path.normpath(path).split(os.sep)
         return len(components) >= 2 \
                and SemanticFS._is_semantic_name(components[-1]) \
                and SemanticFS._is_semantic_name(components[-2])
 
     @staticmethod
-    def _is_entrypoint(path):
+    def _is_entrypoint(path) -> bool:
+        """
+        Returns True if the provided path points to an entry point. The path doesn't necessarily need to exist.
+        Any trailing path separator is ignored.
+        For example, returns True for "/_a", "/a/_b", "/a/_b/_c/d/_e", but False for "/a", "a/_b/_c".
+        :param path:
+        :return:
+        """
         components = os.path.normpath(path).split(os.sep)
         if len(components) == 1 and SemanticFS._is_semantic_name(components[-1]):
             return True
@@ -48,18 +67,12 @@ class SemanticFS(Operations):
             return False
 
     @staticmethod
-    def _is_tagged_file(path):
+    def _is_tagged_file(path) -> bool:
         """
-        /a/_b/_c -> false (it's a tag)
-        /a/_b/_c/ -> false (it's a tag)
-        /a/_b -> false (it's an entry point)
-        /a/_b/ -> false (it's an entry point)
-        /a/b -> false
-        /a/b/ -> false
-        /a/_b/x -> true
-        /a/_b/_c/x -> true
-        /a/_b/d/ -> true
-        /a/_b/_c/d/ -> true
+        Returns True if the provided path points to a standard file or folder within a semantic directory.
+        The path doesn't necessarily need to exist.
+        Any trailing path separator is ignored.
+        For example, returns True for "/a/_b/x", "/a/_b/_c/x", but False for "/a/_b/_c", "/a/_b", "/a/b".
         :param path:
         :return:
         """
@@ -68,15 +81,17 @@ class SemanticFS(Operations):
                and not SemanticFS._is_semantic_name(components[-1]) \
                and SemanticFS._is_semantic_name(components[-2])
 
-    def _datastore_path(self, virtualpath):
-
-        # Redirect semantic paths to the entry point root (remove tags from path)
-        # FIXME Normalizzare path (os.altsep => os.sep, relative => absolute)
-        # /a/_b/_c/x -> dsroot/a/_b/x
-        # /a/_b/_c/ -> dsroot/a/_b/_c/
-        # /a/_b/_c/_d/ -> dsroot/a/_b/_d/
-
-        components = virtualpath.split(os.sep)
+    def _datastore_path(self, virtualpath) -> str:
+        """
+        Returns the path (of another file system) where the provided virtual object is actually stored.
+        For example:
+         * /a/_b/_c/x -> dsroot/a/_b/x
+         * /a/_b/_c/ -> dsroot/a/_b/_c/
+         * /a/_b/_c/_d/ -> dsroot/a/_b/_d/
+        :param virtualpath:
+        :return:
+        """
+        components = os.path.normpath(virtualpath).split(os.sep)
         tmppath = []
         for i, name in enumerate(components):
             if i == 0 or i == 1:
