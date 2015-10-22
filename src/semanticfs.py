@@ -4,13 +4,37 @@ from semanticfolder import SemanticFolder
 
 
 class SemanticFS:
-
     def __init__(self, datastore_root):
         self._dsroot = datastore_root
 
     @staticmethod
-    def _is_tag_name(name):
+    def _is_semantic_name(name):
         return name.startswith('$')
+
+    @staticmethod
+    def _is_tag(path):
+        components = os.path.normpath(path).split(os.sep)
+        return len(components) >= 2 \
+               and SemanticFS._is_semantic_name(components[-1]) \
+               and SemanticFS._is_semantic_name(components[-2])
+
+    @staticmethod
+    def _is_entrypoint(path):
+        components = os.path.normpath(path).split(os.sep)
+        if len(components) == 1 and SemanticFS._is_semantic_name(components[-1]):
+            return True
+        elif len(components) >= 2 and SemanticFS._is_semantic_name(components[-1]) \
+                and not SemanticFS._is_semantic_name(components[-2]):
+            return True
+        else:
+            return False
+
+    @staticmethod
+    def _is_semantic_file(path):
+        components = os.path.normpath(path).split(os.sep)
+        return len(components) >= 2 \
+               and SemanticFS._is_semantic_name(components[-1]) \
+               and SemanticFS._is_semantic_name(components[-2])
 
     def _datastore_path(self, virtualpath):
 
@@ -26,7 +50,7 @@ class SemanticFS:
             if i == 0 or i == 1:
                 tmppath.append(name)
             else:
-                if self._is_tag_name(tmppath[i-2]) and self._is_tag_name(tmppath[i-1]):
+                if self._is_semantic_name(tmppath[i - 2]) and self._is_semantic_name(tmppath[i - 1]):
                     # _a/_b/_c => _a/_c
                     # _a/_b/x => _a/x
                     del tmppath[-1]
@@ -55,13 +79,13 @@ class SemanticFS:
 
             if state == 0:
                 # Searching an entry point
-                if self._is_tag_name(name):
-                    info.append({ 'entrypoint': os.sep.join(components[0:i+1]), 'tags': [], 'file': '' })
+                if self._is_semantic_name(name):
+                    info.append({'entrypoint': os.sep.join(components[0:i + 1]), 'tags': [], 'file': ''})
                     state = 1
 
             elif state == 1:
                 # Collecting all the tags and the final file/folder (if there is one)
-                if self._is_tag_name(name):
+                if self._is_semantic_name(name):
                     info[-1]['tags'].append(name)
                 else:
                     info[-1]['file'] = name
@@ -70,6 +94,7 @@ class SemanticFS:
         return info
 
     def _get_semantic_folder(self, path):
+        # FIXME Error check: if not exists??
         storedir = self._datastore_path(path)
         graph_file = os.path.join(storedir, '$$_SEMANTIC_FS_GRAPH_FILE_$$')
         assoc_file = os.path.join(storedir, '$$_SEMANTIC_FS_ASSOC_FILE_$$')
@@ -82,11 +107,12 @@ class SemanticFS:
         :return:
         """
         for info in self._semantic_path_info(path):
+            # FIXME Potrebbe non esistere e generare un errore: in tal caso, deve restituire FALSE
             folder = self._get_semantic_folder(info['entrypoint'])
             if not (folder.graph.has_path(info['tags']) and folder.filetags.has_tags(info['file'], info['tags'])):
                 return False
 
-        return True
+        return os.path.lexists(self._datastore_path(path))
 
     def access(self, path, mode):
         if not self._exists(path):
@@ -117,7 +143,42 @@ class SemanticFS:
         return os.lstat(dspath)
 
     def readdir(self, path):
+        dirents = ['.', '..']
+        storepath = self._datastore_path(path)
+
+        if os.path.isdir(storepath):
+            # FIXME Order??
+            if SemanticFS._is_tag(path):
+                folder = self._get_semantic_folder(path)
+                pathinfo = self._semantic_path_info(path)
+                dirents.extend(folder.filetags.tagged_files(pathinfo[-1]['tags']))
+            elif SemanticFS._is_entrypoint(path):
+                dirents.extend(os.listdir(storepath))
+            else:
+                dirents.extend(os.listdir(storepath))
+
+        return dirents
+
+    def readlink(self, path):
         pass
+
+    def mknod(self, path, mode, dev):
+        pass
+
+    def rmdir(self, path):
+        pass
+
+    def mkdir(self, path, mode):
+        if SemanticFS._is_tag(path):
+            folder = self._get_semantic_folder(path)
+            components = os.path.normpath(path).split(os.sep)
+            if not folder.graph.has_node(components[-1]):
+                folder.graph.add_node(components[-1])
+            folder.graph.add_arc(components[-2], components[-1])
+        elif SemanticFS._is_entrypoint(path):
+            pass
+        else:
+            pass
 
     # File methods
     # ============

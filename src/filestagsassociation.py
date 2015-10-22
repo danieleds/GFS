@@ -29,6 +29,9 @@ class FilesTagsAssociation:
 
         del self._files[filename]
 
+    def has_file(self, filename):
+        return filename in self._files
+
     def assign_tag(self, filename, tag):
         if filename not in self._files:
             raise ValueError('File name doesn\'t exists within the namespace')
@@ -67,7 +70,7 @@ class FilesTagsAssociation:
 
     def tagged_files(self, tags):
         lst = []
-        for filename, filetags in self._files:
+        for filename, filetags in self._files.items():
             if filetags.issuperset(tags):
                 lst.append(filename)
         return lst

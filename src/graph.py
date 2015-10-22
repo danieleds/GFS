@@ -45,7 +45,7 @@ class Graph:
         return to_node in self._adjacency_out[from_node]
 
     def has_path(self, nodes) -> bool:
-        for i, node in nodes:
+        for i, node in enumerate(nodes):
             if self.has_node(node):
                 if i == 0:
                     continue

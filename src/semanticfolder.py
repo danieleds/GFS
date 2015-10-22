@@ -8,18 +8,26 @@ class SemanticFolder(object):
         self.__path = path
 
         if graph is None:
-            self.graph = Graph()
+            self.__graph = Graph()
         else:
-            self.graph = graph
+            self.__graph = graph
 
         if filetags is None:
-            self.filetags = FilesTagsAssociation()
+            self.__filetags = FilesTagsAssociation()
         else:
-            self.filetags = filetags
+            self.__filetags = filetags
 
     @property
     def path(self):
         return self.__path
+
+    @property
+    def graph(self) -> Graph:
+        return self.__graph
+
+    @property
+    def filetags(self) -> FilesTagsAssociation:
+        return self.__filetags
 
     @classmethod
     def from_filename(cls, graph_file, assoc_file, path):
@@ -41,3 +49,10 @@ class SemanticFolder(object):
 
         # FIXME Cache it
         return cls(path, graph, filetags)
+
+    def to_filename(self, graph_file, assoc_file):
+        with open(graph_file, 'w') as f:
+            f.write(self.graph.serialize())
+
+        with open(assoc_file, 'w') as f:
+            f.write(self.filetags.serialize())
