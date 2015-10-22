@@ -61,35 +61,6 @@ class SemanticFS(Operations):
     def _full_path(self, path): # FIXME DELETEME
         return self._datastore_path(path)
 
-    @staticmethod
-    def _semantic_path_info(path) -> list:
-        """
-
-        :param path: a virtual path
-        :return: [ {entrypoint: "/a/_b" (a virtual path), tags: ["_c", "_d", "_e"], file: "x" }, ... ]
-        """
-        info = []
-        components = os.path.normpath(path).split(os.sep)
-        state = 0
-
-        for i, name in enumerate(components):
-
-            if state == 0:
-                # Searching an entry point
-                if PathInfo.is_semantic_name(name):
-                    info.append({'entrypoint': os.sep.join(components[0:i + 1]), 'tags': [], 'file': ''})
-                    state = 1
-
-            elif state == 1:
-                # Collecting all the tags and the final file/folder (if there is one)
-                if PathInfo.is_semantic_name(name):
-                    info[-1]['tags'].append(name)
-                else:
-                    info[-1]['file'] = name
-                    state = 0
-
-        return info
-
     def _get_semantic_folder(self, path):
         # FIXME Error check: if not exists??
         storedir = self._datastore_path(path)
@@ -109,14 +80,33 @@ class SemanticFS(Operations):
         :param path: a virtual path
         :return:
         """
-        for info in self._semantic_path_info(path):
+
+        # Extracts from the path all the files that belong to a semantic directory in the path.
+        # E.g., given the path "/a/_b/_c/d/e/_f/g/_h", we get
+        # [ '/a/_b/_c/d',
+        #   '/a/_b/_c/d/e/_f/g',
+        #   '/a/_b/_c/d/e/_f/g/_h' (because it's the last one and it's semantic)
+        # ]
+        components = os.path.normpath(path).split(os.sep)
+        semantic_endpoints = []
+        prev_was_semantic = False
+        for i, name in enumerate(components):
+            curr_is_semantic = PathInfo.is_semantic_name(name)
+            if prev_was_semantic and not curr_is_semantic:
+                semantic_endpoints.append(os.sep.join(components[0:i+1]))
+            prev_was_semantic = curr_is_semantic
+        if len(components) > 0 and PathInfo.is_semantic_name(components[-1]):
+            semantic_endpoints.append(os.sep.join(components))
+
+        for subpath in semantic_endpoints:
+            pathinfo = PathInfo(subpath)
             # FIXME Potrebbe non esistere e generare un errore: in tal caso, deve restituire FALSE
-            folder = self._get_semantic_folder(info['entrypoint'])
-            if info['file'] != '' and not folder.filetags.has_file(info['file']):
+            folder = self._get_semantic_folder(pathinfo.entrypoint)
+            if pathinfo.is_tagged_file and not folder.filetags.has_file(pathinfo.file):
                 return False
-            if not folder.graph.has_path(info['tags']):
+            if not folder.graph.has_path(pathinfo.tags):
                 return False
-            if info['file'] != '' and not folder.filetags.has_tags(info['file'], info['tags']):
+            if pathinfo.is_tagged_file and not folder.filetags.has_tags(pathinfo.file, pathinfo.tags):
                 return False
 
         return os.path.lexists(self._datastore_path(path))
