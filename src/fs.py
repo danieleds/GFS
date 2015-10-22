@@ -212,6 +212,8 @@ class SemanticFS(Operations):
             else:
                 semfolder.graph.remove_arc(pathinfo.tags[-2], pathinfo.tags[-1])
 
+            self._save_semantic_folder(semfolder)
+
         elif pathinfo.is_entrypoint:
             os.rmdir(self._datastore_path(path))
 
@@ -226,6 +228,8 @@ class SemanticFS(Operations):
             else:
                 # If it's a tagged path, remove the last tag.
                 semfolder.filetags.discard_tag(pathinfo.file, pathinfo.tags[-1])
+
+            self._save_semantic_folder(semfolder)
 
         else:
             os.rmdir(self._datastore_path(path))
