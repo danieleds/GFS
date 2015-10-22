@@ -44,7 +44,7 @@ class SemanticFS(Operations):
             if i == 0 or i == 1:
                 tmppath.append(name)
             else:
-                if PathInfo.is_semantic_name(tmppath[i - 2]) and PathInfo.is_semantic_name(tmppath[i - 1]):
+                if PathInfo.is_semantic_name(tmppath[-2]) and PathInfo.is_semantic_name(tmppath[-1]):
                     # _a/_b/_c => _a/_c
                     # _a/_b/x => _a/x
                     del tmppath[-1]

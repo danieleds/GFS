@@ -21,7 +21,7 @@ class FilesTagsAssociation:
         if filename in self._files:
             raise ValueError('File name already exists within the namespace')
 
-        self._files[filename] = tags
+        self._files[filename] = set(tags)
 
     def remove_file(self, filename):
         if filename not in self._files:
