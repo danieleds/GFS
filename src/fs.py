@@ -98,7 +98,7 @@ class SemanticFS(Operations):
         assert not PathInfo.is_semantic_name(components[-1]) or os.sep.join(components) not in semantic_endpoints
         if len(components) > 0 and PathInfo.is_semantic_name(components[-1]):
             semantic_endpoints.append(os.sep.join(components))
-            
+
         for subpath in semantic_endpoints:
             pathinfo = PathInfo(subpath)
             assert pathinfo.is_tag or pathinfo.is_tagged_file or pathinfo.is_entrypoint
@@ -174,6 +174,7 @@ class SemanticFS(Operations):
             yield r
 
     def readlink(self, path):
+        # TODO
         pathname = os.readlink(self._full_path(path))
         if pathname.startswith("/"):
             # Path name is absolute, sanitize it.
@@ -182,6 +183,7 @@ class SemanticFS(Operations):
             return pathname
 
     def mknod(self, path, mode, dev):
+        # TODO
         return os.mknod(self._full_path(path), mode, dev)
 
     def rmdir(self, path):
@@ -281,59 +283,114 @@ class SemanticFS(Operations):
             os.mkdir(self._datastore_path(path), mode)
 
     def statfs(self, path):
-        full_path = self._full_path(path)
-        stv = os.statvfs(full_path)
+        storepath = self._datastore_path(path)
+        stv = os.statvfs(storepath)
         return dict((key, getattr(stv, key)) for key in ('f_bavail', 'f_bfree',
                                                          'f_blocks', 'f_bsize', 'f_favail', 'f_ffree', 'f_files',
                                                          'f_flag',
                                                          'f_frsize', 'f_namemax'))
 
     def unlink(self, path):
-        return os.unlink(self._full_path(path))
+        """
+         * Standard file: standard behavior
+         * Tagged file:
+            - if path points to a file directly under the entry poiny,
+              it completely deletes the file.
+            - if path points to a file with one or more tags, remove
+              from the file the last tag in the path.
+        :param path:
+        :return:
+        """
+        pathinfo = PathInfo(path)
+        if pathinfo.is_tag or pathinfo.is_entrypoint:
+            raise FuseOSError(errno.EISDIR)
+
+        elif pathinfo.is_tagged_file:
+            semfolder = self._get_semantic_folder(pathinfo.entrypoint)
+            assert len(pathinfo.file) > 0
+
+            if len(pathinfo.tags) == 0:
+                # If it's directly under the entry point, delete it.
+                os.unlink(self._datastore_path(path))
+                semfolder.filetags.remove_file(pathinfo.file)
+            else:
+                # If it's a tagged path, remove the last tag.
+                semfolder.filetags.discard_tag(pathinfo.file, pathinfo.tags[-1])
+
+            self._save_semantic_folder(semfolder)
+
+        else:
+            os.unlink(self._datastore_path(path))
 
     def symlink(self, name, target):
+        # TODO
         return os.symlink(name, self._full_path(target))
 
     def rename(self, old, new):
+        # TODO
         return os.rename(self._full_path(old), self._full_path(new))
 
     def link(self, target, name):
+        # TODO
         return os.link(self._full_path(target), self._full_path(name))
 
     def utimens(self, path, times=None):
+        # TODO
         return os.utime(self._full_path(path), times)
 
     # File methods
     # ============
 
     def open(self, path, flags):
+        # TODO
         dspath = self._datastore_path(path)
         return os.open(dspath, flags)
 
     def create(self, path, mode, fi=None):
-        full_path = self._full_path(path)
-        return os.open(full_path, os.O_WRONLY | os.O_CREAT, mode)
+        """
+         * Standard file: standard behavior
+         * Tagged file: create the file directly under the entry point, and add
+           the appropriate tags.
+        :param path:
+        :param mode:
+        :param fi:
+        :return:
+        """
+        pathinfo = PathInfo(path)
+        dspath = self._datastore_path(path)
+        f = os.open(dspath, os.O_WRONLY | os.O_CREAT, mode)
+        if pathinfo.is_tagged_file:
+            semfolder = self._get_semantic_folder(pathinfo.entrypoint)
+            semfolder.filetags.add_file(pathinfo.file, pathinfo.tags)
+            self._save_semantic_folder(semfolder)
+        return f
 
     def read(self, path, length, offset, fh):
+        # TODO
         os.lseek(fh, offset, os.SEEK_SET)
         return os.read(fh, length)
 
     def write(self, path, buf, offset, fh):
+        # TODO
         os.lseek(fh, offset, os.SEEK_SET)
         return os.write(fh, buf)
 
     def truncate(self, path, length, fh=None):
+        # TODO
         full_path = self._full_path(path)
         with open(full_path, 'r+') as f:
             f.truncate(length)
 
     def flush(self, path, fh):
+        # TODO
         return os.fsync(fh)
 
     def release(self, path, fh):
+        # TODO
         return os.close(fh)
 
     def fsync(self, path, fdatasync, fh):
+        # TODO
         return self.flush(path, fh)
 
 
