@@ -1,7 +1,7 @@
 import pickle
 
 
-class FilesTagsAssociation:
+class FilesTagsAssociation(object):
 
     def __init__(self):
         self._files = {}

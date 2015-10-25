@@ -1,7 +1,7 @@
 import pickle
 
 
-class Graph:
+class Graph(object):
 
     def __init__(self):
         self._adjacency_out = {}
