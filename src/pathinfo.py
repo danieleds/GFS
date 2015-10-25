@@ -7,7 +7,7 @@ class PathInfo(object):
     def __init__(self, path):
         self.__path = path
 
-        components = os.path.normpath(path).split(os.sep)
+        components = os.path.normcase(os.path.normpath(path)).split(os.sep)
 
         # Is it something semantic?
         if len(components) >= 1 and PathInfo.is_semantic_name(components[-1]):
@@ -99,7 +99,7 @@ class PathInfo(object):
         :return: [ {entrypoint: "/a/_b" (a virtual path), tags: ["_c", "_d", "_e"], file: "x" }, ... ]
         """
         info = []
-        components = os.path.normpath(path).split(os.sep)
+        components = os.path.normcase(os.path.normpath(path)).split(os.sep)
         state = 0
 
         for i, name in enumerate(components):

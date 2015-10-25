@@ -11,6 +11,7 @@ from fuse import FUSE, FuseOSError, Operations
 
 from semanticfolder import SemanticFolder
 from pathinfo import PathInfo
+from ghostfile import GhostFile
 
 logging.basicConfig(level=logging.DEBUG)
 logger = logging.getLogger('SemanticFSLogger')
@@ -25,6 +26,9 @@ class SemanticFS(Operations):
         self._dsroot = datastore_root
         # self.root = datastore_root
 
+        self._writing_files = {}
+
+
     # Helpers
     # =======
 
@@ -38,7 +42,7 @@ class SemanticFS(Operations):
         :param virtualpath:
         :return:
         """
-        components = os.path.normpath(virtualpath).split(os.sep)
+        components = os.path.normcase(os.path.normpath(virtualpath)).split(os.sep)
         tmppath = []
         for i, name in enumerate(components):
             if i == 0 or i == 1:
@@ -58,11 +62,39 @@ class SemanticFS(Operations):
 
         return path
 
-    def _full_path(self, path): # FIXME DELETEME
+    def _full_path(self, path):  # FIXME DELETEME
         return self._datastore_path(path)
 
+    def _add_ghost_file(self, ghost_path):
+        dspath = self._datastore_path(ghost_path)
+        normpath = os.path.normcase(os.path.normpath(ghost_path))
+
+        if dspath not in self._writing_files:
+            self._writing_files[dspath] = {}
+
+        if normpath not in self._writing_files[dspath]:
+            self._writing_files[dspath][normpath] = GhostFile(dspath)
+
+    def _has_ghost_file(self, ghost_path) -> bool:
+        dspath = self._datastore_path(ghost_path)
+        normpath = os.path.normcase(os.path.normpath(ghost_path))
+        return normpath in self._writing_files and normpath in self._writing_files[dspath]
+
+    def _get_ghost_file(self, ghost_path) -> GhostFile:
+        dspath = self._datastore_path(ghost_path)
+        normpath = os.path.normcase(os.path.normpath(ghost_path))
+        assert isinstance(self._writing_files[dspath][normpath], GhostFile)
+        return self._writing_files[dspath][normpath]
+
+    def _delete_ghost_file(self, ghost_path):
+        dspath = self._datastore_path(ghost_path)
+        normpath = os.path.normcase(os.path.normpath(ghost_path))
+        assert isinstance(self._writing_files[dspath][normpath], GhostFile)
+        del self._writing_files[dspath][normpath]
+        if len(self._writing_files[dspath]) == 0:
+            del self._writing_files[dspath]
+
     def _get_semantic_folder(self, path):
-        # FIXME Error check: if not exists??
         storedir = self._datastore_path(path)
         graph_file = os.path.join(storedir, SemanticFS.SEMANTIC_FS_GRAPH_FILE_NAME)
         assoc_file = os.path.join(storedir, SemanticFS.SEMANTIC_FS_ASSOC_FILE_NAME)
@@ -87,7 +119,7 @@ class SemanticFS(Operations):
         #   '/a/_b/_c/d/e/_f/g',
         #   '/a/_b/_c/d/e/_f/g/_h' (because it's the last one and it's semantic)
         # ]
-        components = os.path.normpath(path).split(os.sep)
+        components = os.path.normcase(os.path.normpath(path)).split(os.sep)
         semantic_endpoints = []
         prev_was_semantic = False
         for i, name in enumerate(components):
@@ -103,8 +135,11 @@ class SemanticFS(Operations):
             pathinfo = PathInfo(subpath)
             assert pathinfo.is_tag or pathinfo.is_tagged_file or pathinfo.is_entrypoint
 
-            # FIXME Potrebbe non esistere e generare un errore: in tal caso, deve restituire FALSE
-            folder = self._get_semantic_folder(pathinfo.entrypoint)
+            try:
+                folder = self._get_semantic_folder(pathinfo.entrypoint)
+            except FileNotFoundError:
+                return False
+
             if pathinfo.is_tagged_file and not folder.filetags.has_file(pathinfo.file):
                 return False
             if not folder.graph.has_path(pathinfo.tags):
@@ -342,51 +377,72 @@ class SemanticFS(Operations):
     # ============
 
     def open(self, path, flags):
-        # TODO
         dspath = self._datastore_path(path)
-        return os.open(dspath, flags)
+        f = os.open(dspath, flags)
+
+        if flags & (os.O_WRONLY | os.O_RDWR) != 0:
+            self._add_ghost_file(path)
+
+        return f
 
     def create(self, path, mode, fi=None):
         """
          * Standard file: standard behavior
          * Tagged file: create the file directly under the entry point, and add
-           the appropriate tags.
+           the appropriate tags. If the file already exists under the entry point,
+           just add the tags.
         :param path:
         :param mode:
         :param fi:
-        :return:
+        :return: write descriptor for the file
         """
         pathinfo = PathInfo(path)
         dspath = self._datastore_path(path)
         f = os.open(dspath, os.O_WRONLY | os.O_CREAT, mode)
+
+        self._add_ghost_file(path)
+
         if pathinfo.is_tagged_file:
             semfolder = self._get_semantic_folder(pathinfo.entrypoint)
-            semfolder.filetags.add_file(pathinfo.file, pathinfo.tags)
+            if semfolder.filetags.has_file(pathinfo.file):
+                semfolder.filetags.assign_tags(pathinfo.tags)
+            else:
+                semfolder.filetags.add_file(pathinfo.file, pathinfo.tags)
             self._save_semantic_folder(semfolder)
+
         return f
 
     def read(self, path, length, offset, fh):
-        # TODO
-        os.lseek(fh, offset, os.SEEK_SET)
-        return os.read(fh, length)
+        if self._has_ghost_file(path):
+            return self._get_ghost_file(path).read(length, offset, fh)
+        else:
+            os.lseek(fh, offset, os.SEEK_SET)
+            return os.read(fh, length)
 
     def write(self, path, buf, offset, fh):
-        # TODO
-        os.lseek(fh, offset, os.SEEK_SET)
-        return os.write(fh, buf)
+        if self._has_ghost_file(path):
+            return self._get_ghost_file(path).write(buf, offset, fh)
+        else:
+            os.lseek(fh, offset, os.SEEK_SET)
+            return os.write(fh, buf)
 
     def truncate(self, path, length, fh=None):
-        # TODO
-        full_path = self._full_path(path)
-        with open(full_path, 'r+') as f:
-            f.truncate(length)
+        if self._has_ghost_file(path):
+            self._get_ghost_file(path).truncate(length)
+        else:
+            dspath = self._datastore_path(path)
+            with open(dspath, 'r+') as f:
+                f.truncate(length)
 
     def flush(self, path, fh):
         # TODO
         return os.fsync(fh)
 
     def release(self, path, fh):
-        # TODO
+        if self._has_ghost_file(path):
+            self._get_ghost_file(path).apply(fh)  # FIXME Do this only if this is a release related to a write fh!!
+            self._delete_ghost_file(path)  # FIXME Delete only if it is the last reference!! There could have been more than one open(WR) for this path
+
         return os.close(fh)
 
     def fsync(self, path, fdatasync, fh):
