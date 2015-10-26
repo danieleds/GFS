@@ -28,7 +28,6 @@ class SemanticFS(Operations):
 
         self._writing_files = {}
 
-
     # Helpers
     # =======
 
@@ -381,7 +380,10 @@ class SemanticFS(Operations):
         f = os.open(dspath, flags)
 
         if flags & (os.O_WRONLY | os.O_RDWR) != 0:
-            self._add_ghost_file(path)
+            pathinfo = PathInfo(path)
+            if pathinfo.is_tagged_file:
+                # FIXME What if path == dspath???
+                self._add_ghost_file(path)
 
         return f
 
@@ -400,9 +402,10 @@ class SemanticFS(Operations):
         dspath = self._datastore_path(path)
         f = os.open(dspath, os.O_WRONLY | os.O_CREAT, mode)
 
-        self._add_ghost_file(path)
-
         if pathinfo.is_tagged_file:
+            # FIXME What if path == dspath???
+            self._add_ghost_file(path)
+
             semfolder = self._get_semantic_folder(pathinfo.entrypoint)
             if semfolder.filetags.has_file(pathinfo.file):
                 semfolder.filetags.assign_tags(pathinfo.tags)
