@@ -33,7 +33,7 @@ class SemanticFS(Operations):
     # Helpers
     # =======
 
-    def _datastore_path(self, virtualpath) -> str:
+    def _datastore_path(self, virtualpath: str) -> str:
         """
         Returns the path (of another file system) where the provided virtual object is actually stored.
         For example:
@@ -43,6 +43,7 @@ class SemanticFS(Operations):
         :param virtualpath:
         :return:
         """
+        # FIXME What happens with relative pathnames?
         components = os.path.normcase(os.path.normpath(virtualpath)).split(os.sep)
         tmppath = []
         for i, name in enumerate(components):
@@ -63,14 +64,11 @@ class SemanticFS(Operations):
 
         return path
 
-    def _full_path(self, path):  # FIXME DELETEME
-        return self._datastore_path(path)
-
-    def _add_ghost_file(self, ghost_path):
+    def _add_ghost_file(self, ghost_path: str):
         """
         Adds a ghost file for the specified virtual path.
         If a ghost file already exists for that path, it doesn't add another one but keeps track
-        of this additional reference.
+        of this additional reference (see `SemanticFS._delete_ghost_file`).
         :param ghost_path:
         """
         dspath = self._datastore_path(ghost_path)
@@ -82,19 +80,35 @@ class SemanticFS(Operations):
             self._writing_files[dspath, normpath] = GhostFile(dspath)
             self._writing_files_count[dspath, normpath] = 0
 
-    def _has_ghost_file(self, ghost_path) -> bool:
+    def _has_ghost_file(self, ghost_path: str) -> bool:
+        """
+        Test whether a ghost file exists for the specified path.
+        :param ghost_path:
+        :return:
+        """
         dspath = self._datastore_path(ghost_path)
         normpath = os.path.normcase(os.path.normpath(ghost_path))
         assert (dspath, normpath) in self._writing_files == self._writing_files_count[dspath, normpath] > 0
         return (dspath, normpath) in self._writing_files
 
-    def _get_ghost_file(self, ghost_path) -> GhostFile:
+    def _get_ghost_file(self, ghost_path: str) -> GhostFile:
+        """
+        Returns a ghost file for the specified path. If not present, raises a KeyError.
+        :param ghost_path:
+        :return:
+        """
         dspath = self._datastore_path(ghost_path)
         normpath = os.path.normcase(os.path.normpath(ghost_path))
         assert isinstance(self._writing_files[dspath, normpath], GhostFile)
         return self._writing_files[dspath, normpath]
 
-    def _delete_ghost_file(self, ghost_path):
+    def _delete_ghost_file(self, ghost_path: str):
+        """
+        Deletes the ghost file for the specified path. If the reference count associated to this
+        ghost path is greater than 1, it just decreases the counter (see `SemanticFS._add_ghost_file`).
+        If the ghost path is not present, raises a KeyError.
+        :param ghost_path:
+        """
         dspath = self._datastore_path(ghost_path)
         normpath = os.path.normcase(os.path.normpath(ghost_path))
         assert isinstance(self._writing_files[dspath, normpath], GhostFile)
@@ -104,21 +118,30 @@ class SemanticFS(Operations):
             del self._writing_files[dspath, normpath]
             del self._writing_files_count[dspath, normpath]
 
-    def _get_semantic_folder(self, path):
+    def _get_semantic_folder(self, path: str) -> SemanticFolder:
+        """
+        Returns a SemanticFolder object for the specified path.
+        :param path: the virtual path of the entry point of the semantic folder.
+        :return:
+        """
         storedir = self._datastore_path(path)
         graph_file = os.path.join(storedir, SemanticFS.SEMANTIC_FS_GRAPH_FILE_NAME)
         assoc_file = os.path.join(storedir, SemanticFS.SEMANTIC_FS_ASSOC_FILE_NAME)
         return SemanticFolder.from_filename(graph_file, assoc_file, path)
 
     def _save_semantic_folder(self, semfolder: SemanticFolder):
+        """
+        Saves the specified SemanticFolder object to the storage media.
+        :param semfolder:
+        """
         storedir = self._datastore_path(semfolder.path)
         graph_file = os.path.join(storedir, SemanticFS.SEMANTIC_FS_GRAPH_FILE_NAME)
         assoc_file = os.path.join(storedir, SemanticFS.SEMANTIC_FS_ASSOC_FILE_NAME)
         semfolder.to_filename(graph_file, assoc_file)
 
-    def _exists(self, path) -> bool:
+    def _exists(self, path: str) -> bool:
         """
-
+        Test whether the specified virtual path exists in the file system.
         :param path: a virtual path
         :return:
         """
@@ -160,7 +183,12 @@ class SemanticFS(Operations):
         return os.path.lexists(self._datastore_path(path))
 
     @staticmethod
-    def _is_reserved_name(name) -> bool:
+    def _is_reserved_name(name: str) -> bool:
+        """
+        Test whether the specified name is a reserved one for the virtual file system.
+        :param name:
+        :return:
+        """
         lowername = os.path.normpath(os.sep + name.lower())
         return lowername.endswith(os.sep + SemanticFS.SEMANTIC_FS_GRAPH_FILE_NAME.lower()) \
                or lowername.endswith(os.sep + SemanticFS.SEMANTIC_FS_ASSOC_FILE_NAME.lower())
@@ -220,7 +248,7 @@ class SemanticFS(Operations):
 
     def readlink(self, path):
         # TODO
-        pathname = os.readlink(self._full_path(path))
+        pathname = os.readlink(self._datastore_path(path))
         if pathname.startswith("/"):
             # Path name is absolute, sanitize it.
             return os.path.relpath(pathname, self._dsroot)
@@ -229,7 +257,7 @@ class SemanticFS(Operations):
 
     def mknod(self, path, mode, dev):
         # TODO
-        return os.mknod(self._full_path(path), mode, dev)
+        return os.mknod(self._datastore_path(path), mode, dev)
 
     def rmdir(self, path):
         """
@@ -369,19 +397,19 @@ class SemanticFS(Operations):
 
     def symlink(self, name, target):
         # TODO
-        return os.symlink(name, self._full_path(target))
+        return os.symlink(name, self._datastore_path(target))
 
     def rename(self, old, new):
         # TODO
-        return os.rename(self._full_path(old), self._full_path(new))
+        return os.rename(self._datastore_path(old), self._datastore_path(new))
 
     def link(self, target, name):
         # TODO
-        return os.link(self._full_path(target), self._full_path(name))
+        return os.link(self._datastore_path(target), self._datastore_path(name))
 
     def utimens(self, path, times=None):
         # TODO
-        return os.utime(self._full_path(path), times)
+        return os.utime(self._datastore_path(path), times)
 
     # File methods
     # ============
