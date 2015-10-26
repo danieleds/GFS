@@ -75,10 +75,14 @@ class SemanticFS(Operations):
         normpath = os.path.normcase(os.path.normpath(ghost_path))
 
         if (dspath, normpath) in self._writing_files:
+            assert self._writing_files_count[dspath, normpath] > 0
             self._writing_files_count[dspath, normpath] += 1
         else:
+            assert (dspath, normpath) not in self._writing_files_count
             self._writing_files[dspath, normpath] = GhostFile(dspath)
-            self._writing_files_count[dspath, normpath] = 0
+            self._writing_files_count[dspath, normpath] = 1
+
+        assert (dspath, normpath) in self._writing_files and self._writing_files_count[dspath, normpath] > 0
 
     def _has_ghost_file(self, ghost_path: str) -> bool:
         """
@@ -88,7 +92,8 @@ class SemanticFS(Operations):
         """
         dspath = self._datastore_path(ghost_path)
         normpath = os.path.normcase(os.path.normpath(ghost_path))
-        assert (dspath, normpath) in self._writing_files == self._writing_files_count[dspath, normpath] > 0
+        assert ((dspath, normpath) in self._writing_files) == \
+               ((dspath, normpath) in self._writing_files_count and self._writing_files_count[dspath, normpath] > 0)
         return (dspath, normpath) in self._writing_files
 
     def _get_ghost_file(self, ghost_path: str) -> GhostFile:
@@ -223,7 +228,13 @@ class SemanticFS(Operations):
                                                         'st_gid', 'st_mode', 'st_mtime',
                                                         'st_nlink', 'st_size', 'st_uid'))
 
-    def readdir(self, path, fh):
+    def readdir(self, path: str, fh):
+        """
+        Yelds the list of files and directories within the provided one.
+        Already traversed tags of a semantic directory are not shown.
+        :param path:
+        :param fh:
+        """
         dirents = []
         storepath = self._datastore_path(path)
 
@@ -293,6 +304,7 @@ class SemanticFS(Operations):
             self._save_semantic_folder(semfolder)
 
         elif pathinfo.is_entrypoint:
+            # FIXME Check that is't empty, then remove special files from datastore!!
             os.rmdir(self._datastore_path(path))
 
         elif pathinfo.is_tagged_file:
@@ -423,7 +435,7 @@ class SemanticFS(Operations):
             self._write_descriptors.add(f)
             pathinfo = PathInfo(path)
             if pathinfo.is_tagged_file:
-                # FIXME What if path == dspath???
+                # FIXME What if path == dspath??? Maybe already works, just check.
                 self._add_ghost_file(path)
 
         return f
@@ -447,15 +459,18 @@ class SemanticFS(Operations):
         self._write_descriptors.add(f)
 
         if pathinfo.is_tagged_file:
-            # FIXME What if path == dspath???
+            # FIXME What if path == dspath??? Maybe already works, just check.
+            logger.debug("Creating file %s", path)
             self._add_ghost_file(path)
 
             semfolder = self._get_semantic_folder(pathinfo.entrypoint)
             if semfolder.filetags.has_file(pathinfo.file):
-                semfolder.filetags.assign_tags(pathinfo.tags)
+                semfolder.filetags.assign_tags(pathinfo.file, pathinfo.tags)
             else:
                 semfolder.filetags.add_file(pathinfo.file, pathinfo.tags)
             self._save_semantic_folder(semfolder)
+
+            assert self._has_ghost_file(path)
 
         return f
 

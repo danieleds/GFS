@@ -13,7 +13,7 @@ class GhostFile(object):
         except FileNotFoundError:
             self.__filesize = 0
 
-        self.__rewritten_intervals = IntervalTree([Interval(0, self.__filesize)])
+        self.__rewritten_intervals = IntervalTree([Interval(0, self.__filesize)] if self.__filesize > 0 else None)
 
     def truncate(self, length):
         """
@@ -43,12 +43,20 @@ class GhostFile(object):
         self.__filesize = length
 
     def write(self, buf, offset, fh):
+        # FIXME Controllare bene se la copy-on-change funziona...
+        # cp /x _sem/_t1/x  ->  x è anche in _sem/x?
+        # cp _sem/x _sem/_t1/x (con x non già esistente)  ->  nessuna scrittura viene eseguita?
+        # cp _sem/x _sem/_t1/x (con x già esistente e stesso file)  ->  nessuna scrittura viene eseguita?
+        # cp _sem/y _sem/_t1/x  ->  viene eseguita la scrittura correttamente?
         if offset + len(buf) <= self.__filesize and self._is_same_data(buf, offset):
             # Ok, we don't write anything. We just remember about it.
             GhostFile._optimized_add_to_intervaltree(self.__rewritten_intervals, offset, offset + len(buf))
             return len(buf)
 
         else:
+            # TODO Do only the write if in the tree there is one contiguous interval from 0 to filesize, because it
+            #      means that the previous write was real too
+
             # Add this write to the intervaltree so that we don't waste time filling it with zeros.
             # We're going to reset the tree anyway.
             GhostFile._optimized_add_to_intervaltree(self.__rewritten_intervals, offset, offset + len(buf))
@@ -65,7 +73,10 @@ class GhostFile(object):
 
             # Update the structures
             self.__filesize = os.path.getsize(self.__data_path)
-            self.__rewritten_intervals = IntervalTree([Interval(0, self.__filesize)])
+            self.__rewritten_intervals = IntervalTree([Interval(0, self.__filesize)] if self.__filesize > 0 else None)
+
+            # TODO Remove
+            print("Writing data")
 
             return len(buf)
 
@@ -114,10 +125,10 @@ class GhostFile(object):
     def apply(self, fh):
         # Fill all the holes with zeros and write them
         self._write_tree_to_real_file(fh)
-        self.__rewritten_intervals = IntervalTree([Interval(0, self.__filesize)])
+        self.__rewritten_intervals = IntervalTree([Interval(0, self.__filesize)] if self.__filesize > 0 else None)
 
     def _is_same_data(self, buf, offset):
-        # Fixme do not open the same file everytime... save the fh somewhere
+        # TODO do not open the same file everytime... save the fh somewhere
         with open(self.__data_path, 'rb') as f:
             f.seek(offset)
             olddata = f.read(len(buf))
