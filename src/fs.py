@@ -222,13 +222,17 @@ class SemanticFS(Operations):
         if not self._exists(path):
             raise FuseOSError(errno.ENOENT)
 
-        # FIXME Se c'è un ghostfile, restituire il filesize del ghostfile
-
         dspath = self._datastore_path(path)
         st = os.lstat(dspath)
-        return dict((key, getattr(st, key)) for key in ('st_atime', 'st_ctime',
-                                                        'st_gid', 'st_mode', 'st_mtime',
-                                                        'st_nlink', 'st_size', 'st_uid'))
+
+        attribs = dict((key, getattr(st, key)) for key in ('st_atime', 'st_ctime',
+                                                           'st_gid', 'st_mode', 'st_mtime',
+                                                           'st_nlink', 'st_size', 'st_uid'))
+
+        if self._has_ghost_file(path):
+            attribs['st_size'] = self._get_ghost_file(path).size
+
+        return attribs
 
     def readdir(self, path: str, fh):
         """

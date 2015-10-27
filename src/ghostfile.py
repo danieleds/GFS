@@ -132,6 +132,10 @@ class GhostFile(object):
         self._write_tree_to_real_file(fh)
         self.__rewritten_intervals = IntervalTree([Interval(0, self.__filesize)] if self.__filesize > 0 else None)
 
+    @property
+    def size(self):
+        return self.__filesize
+
     def _is_same_data(self, buf, offset):
         # TODO do not open the same file everytime... save the fh somewhere
         with open(self.__data_path, 'rb') as f:
