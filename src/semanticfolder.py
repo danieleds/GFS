@@ -47,7 +47,7 @@ class SemanticFolder(object):
         with open(assoc_file, 'rb') as f:
             filetags.deserialize(f.read())
 
-        # FIXME Cache it
+        # TODO Cache it
         return cls(path, graph, filetags)
 
     def to_filename(self, graph_file, assoc_file):

@@ -222,6 +222,8 @@ class SemanticFS(Operations):
         if not self._exists(path):
             raise FuseOSError(errno.ENOENT)
 
+        # FIXME Se c'è un ghostfile, restituire il filesize del ghostfile
+
         dspath = self._datastore_path(path)
         st = os.lstat(dspath)
         return dict((key, getattr(st, key)) for key in ('st_atime', 'st_ctime',
@@ -427,6 +429,7 @@ class SemanticFS(Operations):
     # ============
 
     def open(self, path, flags):
+        logger.debug("open(%s)", path)
         dspath = self._datastore_path(path)
         f = os.open(dspath, flags)
 
@@ -451,6 +454,7 @@ class SemanticFS(Operations):
         :param fi:
         :return: write descriptor for the file
         """
+        logger.debug("create(%s)", path)
         pathinfo = PathInfo(path)
         dspath = self._datastore_path(path)
         f = os.open(dspath, os.O_WRONLY | os.O_CREAT, mode)
@@ -489,6 +493,7 @@ class SemanticFS(Operations):
             return os.write(fh, buf)
 
     def truncate(self, path, length, fh=None):
+        logger.debug("truncate(%s, %d)", path, length)
         if self._has_ghost_file(path):
             self._get_ghost_file(path).truncate(length)
         else:
@@ -501,6 +506,7 @@ class SemanticFS(Operations):
         return os.fsync(fh)
 
     def release(self, path, fh):
+        logger.debug("close(%s)", path)
         if fh in self._write_descriptors:
             assert self._has_ghost_file(path)
             self._get_ghost_file(path).apply(fh)

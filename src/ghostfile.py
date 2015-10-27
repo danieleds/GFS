@@ -31,7 +31,6 @@ class GhostFile(object):
          * Writes:        _X_X__XX
          * Truncate 5:    _X_X_|
 
-        :param path:
         :param length:
         """
         if length > 0:
@@ -42,15 +41,20 @@ class GhostFile(object):
 
         self.__filesize = length
 
+        assert self.__filesize == self.__rewritten_intervals.end()
+
     def write(self, buf, offset, fh):
         # FIXME Controllare bene se la copy-on-change funziona...
-        # cp /x _sem/_t1/x  ->  x è anche in _sem/x?
-        # cp _sem/x _sem/_t1/x (con x non già esistente)  ->  nessuna scrittura viene eseguita?
-        # cp _sem/x _sem/_t1/x (con x già esistente e stesso file)  ->  nessuna scrittura viene eseguita?
+        # cp /x _sem/_t1/x  ->  x è anche in _sem/x? [ok]
+        # cp _sem/x _sem/_t1/x (con x non già esistente)  ->  nessuna scrittura viene eseguita? [ok]
+        # cp _sem/x _sem/_t1/x (con x già esistente e stesso file)  ->  nessuna scrittura viene eseguita? ERRORE: File corrotto
         # cp _sem/y _sem/_t1/x  ->  viene eseguita la scrittura correttamente?
-        if offset + len(buf) <= self.__filesize and self._is_same_data(buf, offset):
+        if offset + len(buf) <= os.path.getsize(self.__data_path) and self._is_same_data(buf, offset):
             # Ok, we don't write anything. We just remember about it.
             GhostFile._optimized_add_to_intervaltree(self.__rewritten_intervals, offset, offset + len(buf))
+            self.__filesize = max(self.__filesize, offset + len(buf))
+
+            assert self.__filesize == self.__rewritten_intervals.end()
             return len(buf)
 
         else:
@@ -78,6 +82,7 @@ class GhostFile(object):
             # TODO Remove
             print("Writing data")
 
+            assert self.__filesize == self.__rewritten_intervals.end() == os.path.getsize(self.__data_path)
             return len(buf)
 
     def read(self, length, offset, fh):
@@ -188,4 +193,5 @@ class GhostFile(object):
         assert written_bytes == len(zeros)
 
         # TODO Find a way to avoid doing all this if nobody did a truncate since the last call to this method
+        # FIXME Should be max(filesize, intervals.end())???
         os.ftruncate(fh, self.__filesize)
