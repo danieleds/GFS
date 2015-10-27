@@ -61,10 +61,12 @@ class SemanticFS(Operations):
 
         tmppath = os.sep.join(tmppath)
 
-        # FIXME Do it in a crossplatform way
-        if tmppath.startswith("/"):
-            tmppath = tmppath[1:]
+        # Remove the root from the path
+        tmppath = os.path.splitdrive(tmppath)[1]
+        if tmppath.startswith(os.sep):
+            tmppath = tmppath[len(os.sep):]
 
+        # Join the path with the datastore path
         path = os.path.join(self._dsroot, tmppath)
 
         return path
