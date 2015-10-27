@@ -40,10 +40,13 @@ class SemanticFS(Operations):
          * /a/_b/_c/x -> dsroot/a/_b/x
          * /a/_b/_c/ -> dsroot/a/_b/_c/
          * /a/_b/_c/_d/ -> dsroot/a/_b/_d/
-        :param virtualpath:
+        :param virtualpath: an absolute virtual path
         :return:
         """
-        # FIXME What happens with relative pathnames?
+
+        if not os.path.isabs(virtualpath):
+            raise ValueError("virtualpath should be absolute")
+
         components = os.path.normcase(os.path.normpath(virtualpath)).split(os.sep)
         tmppath = []
         for i, name in enumerate(components):
@@ -57,6 +60,8 @@ class SemanticFS(Operations):
                 tmppath.append(name)
 
         tmppath = os.sep.join(tmppath)
+
+        # FIXME Do it in a crossplatform way
         if tmppath.startswith("/"):
             tmppath = tmppath[1:]
 
