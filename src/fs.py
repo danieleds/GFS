@@ -24,7 +24,6 @@ class SemanticFS(Operations):
 
     def __init__(self, datastore_root):
         self._dsroot = datastore_root
-        # self.root = datastore_root
 
         self._writing_files = {}
         self._writing_files_count = {}
@@ -317,8 +316,19 @@ class SemanticFS(Operations):
             self._save_semantic_folder(semfolder)
 
         elif pathinfo.is_entrypoint:
-            # FIXME Check that is't empty, then remove special files from datastore!!
-            os.rmdir(self._datastore_path(path))
+            dspath = self._datastore_path(path)
+
+            # Even if the dir is logically empty, we can't remove it from the datastore because it contains
+            # some special files. So first we make sure that the dir is empty from the user point-of-view, then
+            # we unlink the special files, and at last we remove the directory.
+            files = os.listdir(dspath)
+            fsfiles = [SemanticFS.SEMANTIC_FS_GRAPH_FILE_NAME, SemanticFS.SEMANTIC_FS_ASSOC_FILE_NAME]
+            if set(files).issubset(fsfiles):
+                for f in fsfiles:
+                    os.unlink(os.path.join(dspath, f))
+                os.rmdir(dspath)
+            else:
+                raise FuseOSError(errno.ENOTEMPTY) # FIXME Fa la cosa giusta???
 
         elif pathinfo.is_tagged_file:
             semfolder = self._get_semantic_folder(pathinfo.entrypoint)
