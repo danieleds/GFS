@@ -25,9 +25,9 @@ class SemanticFS(Operations):
     def __init__(self, datastore_root):
         self._dsroot = datastore_root
 
-        self._writing_files = {}
-        self._writing_files_count = {}
-        self._write_descriptors = set()
+        self._sem_writing_files = {}  # Ghostfiles for semantic files opened for write
+        self._sem_writing_files_count = {}  # Count of the references for each ghostfile in self._sem_writing_files
+        self._sem_write_descriptors = set()  # Opened write file descriptors for files within a semantic directory
 
     # Helpers
     # =======
@@ -70,25 +70,27 @@ class SemanticFS(Operations):
 
         return path
 
-    def _add_ghost_file(self, ghost_path: str):
+    def _add_ghost_file(self, ghost_path: str) -> GhostFile:
         """
         Adds a ghost file for the specified virtual path.
         If a ghost file already exists for that path, it doesn't add another one but keeps track
         of this additional reference (see `SemanticFS._delete_ghost_file`).
         :param ghost_path:
+        :return: the added GhostFile
         """
         dspath = self._datastore_path(ghost_path)
         normpath = os.path.normcase(os.path.normpath(ghost_path))
 
-        if (dspath, normpath) in self._writing_files:
-            assert self._writing_files_count[dspath, normpath] > 0
-            self._writing_files_count[dspath, normpath] += 1
+        if (dspath, normpath) in self._sem_writing_files:
+            assert self._sem_writing_files_count[dspath, normpath] > 0
+            self._sem_writing_files_count[dspath, normpath] += 1
         else:
-            assert (dspath, normpath) not in self._writing_files_count
-            self._writing_files[dspath, normpath] = GhostFile(dspath)
-            self._writing_files_count[dspath, normpath] = 1
+            assert (dspath, normpath) not in self._sem_writing_files_count
+            self._sem_writing_files[dspath, normpath] = GhostFile(dspath)
+            self._sem_writing_files_count[dspath, normpath] = 1
 
-        assert (dspath, normpath) in self._writing_files and self._writing_files_count[dspath, normpath] > 0
+        assert (dspath, normpath) in self._sem_writing_files and self._sem_writing_files_count[dspath, normpath] > 0
+        return self._sem_writing_files[dspath, normpath]
 
     def _has_ghost_file(self, ghost_path: str) -> bool:
         """
@@ -98,9 +100,10 @@ class SemanticFS(Operations):
         """
         dspath = self._datastore_path(ghost_path)
         normpath = os.path.normcase(os.path.normpath(ghost_path))
-        assert ((dspath, normpath) in self._writing_files) == \
-               ((dspath, normpath) in self._writing_files_count and self._writing_files_count[dspath, normpath] > 0)
-        return (dspath, normpath) in self._writing_files
+        assert ((dspath, normpath) in self._sem_writing_files) == \
+               ((dspath, normpath) in self._sem_writing_files_count
+                and self._sem_writing_files_count[dspath, normpath] > 0)
+        return (dspath, normpath) in self._sem_writing_files
 
     def _get_ghost_file(self, ghost_path: str) -> GhostFile:
         """
@@ -110,8 +113,8 @@ class SemanticFS(Operations):
         """
         dspath = self._datastore_path(ghost_path)
         normpath = os.path.normcase(os.path.normpath(ghost_path))
-        assert isinstance(self._writing_files[dspath, normpath], GhostFile)
-        return self._writing_files[dspath, normpath]
+        assert isinstance(self._sem_writing_files[dspath, normpath], GhostFile)
+        return self._sem_writing_files[dspath, normpath]
 
     def _delete_ghost_file(self, ghost_path: str):
         """
@@ -122,12 +125,12 @@ class SemanticFS(Operations):
         """
         dspath = self._datastore_path(ghost_path)
         normpath = os.path.normcase(os.path.normpath(ghost_path))
-        assert isinstance(self._writing_files[dspath, normpath], GhostFile)
-        self._writing_files_count[dspath, normpath] -= 1
-        assert self._writing_files_count[dspath, normpath] >= 0
-        if self._writing_files_count[dspath, normpath] == 0:
-            del self._writing_files[dspath, normpath]
-            del self._writing_files_count[dspath, normpath]
+        assert isinstance(self._sem_writing_files[dspath, normpath], GhostFile)
+        self._sem_writing_files_count[dspath, normpath] -= 1
+        assert self._sem_writing_files_count[dspath, normpath] >= 0
+        if self._sem_writing_files_count[dspath, normpath] == 0:
+            del self._sem_writing_files[dspath, normpath]
+            del self._sem_writing_files_count[dspath, normpath]
 
     def _get_semantic_folder(self, path: str) -> SemanticFolder:
         """
@@ -203,6 +206,26 @@ class SemanticFS(Operations):
         lowername = os.path.normpath(os.sep + name.lower())
         return lowername.endswith(os.sep + SemanticFS.SEMANTIC_FS_GRAPH_FILE_NAME.lower()) \
                or lowername.endswith(os.sep + SemanticFS.SEMANTIC_FS_ASSOC_FILE_NAME.lower())
+
+    @staticmethod
+    def _stringify_open_flags(flags):
+        names = ["O_RDONLY", "O_WRONLY", "O_RDWR", "O_APPEND", "O_CREAT",
+                 "O_EXCL", "O_TRUNC", "O_DSYNC", "O_RSYNC", "O_SYNC",
+                 "O_NDELAY", "O_NONBLOCK", "O_NOCTTY", "O_SHLOCK", "O_EXLOCK",
+                 "O_BINARY", "O_NOINHERIT", "O_SHORT_LIVED", "O_TEMPORARY",
+                 "O_RANDOM", "O_SEQUENTIAL", "O_TEXT", "O_ASYNC", "O_DIRECT",
+                 "O_DIRECTORY", "O_NOFOLLOW", "O_NOATIME" ]
+
+        active_flags = []
+
+        for name in names:
+            if hasattr(os, name) and flags & getattr(os, name) != 0:
+                active_flags.append(name)
+
+        if not active_flags:
+            active_flags.append(names[0])
+
+        return "|".join(active_flags)
 
     # Filesystem methods
     # ==================
@@ -450,16 +473,16 @@ class SemanticFS(Operations):
     # ============
 
     def open(self, path, flags):
-        logger.debug("open(%s)", path)
         dspath = self._datastore_path(path)
         f = os.open(dspath, flags)
+        logger.debug("open(%s, %s) -> %d", path, SemanticFS._stringify_open_flags(flags), f)
 
         if flags & (os.O_WRONLY | os.O_RDWR) != 0:
-            assert f not in self._write_descriptors
-            self._write_descriptors.add(f)
             pathinfo = PathInfo(path)
             if pathinfo.is_tagged_file:
                 # FIXME What if path == dspath??? Maybe already works, just check.
+                assert f not in self._sem_write_descriptors
+                self._sem_write_descriptors.add(f)
                 self._add_ghost_file(path)
 
         return f
@@ -475,18 +498,18 @@ class SemanticFS(Operations):
         :param fi:
         :return: write descriptor for the file
         """
-        logger.debug("create(%s)", path)
         pathinfo = PathInfo(path)
         dspath = self._datastore_path(path)
         f = os.open(dspath, os.O_WRONLY | os.O_CREAT, mode)
+        logger.debug("create(%s, %s) -> %d", path, SemanticFS._stringify_open_flags(os.O_WRONLY | os.O_CREAT), f)
 
-        assert f not in self._write_descriptors
-        self._write_descriptors.add(f)
 
         if pathinfo.is_tagged_file:
             # FIXME What if path == dspath??? Maybe already works, just check.
-            logger.debug("Creating file %s", path)
-            self._add_ghost_file(path)
+
+            assert f not in self._sem_write_descriptors
+            self._sem_write_descriptors.add(f)
+            self._add_ghost_file(path).truncate(0)
 
             semfolder = self._get_semantic_folder(pathinfo.entrypoint)
             if semfolder.filetags.has_file(pathinfo.file):
@@ -527,12 +550,12 @@ class SemanticFS(Operations):
         return os.fsync(fh)
 
     def release(self, path, fh):
-        logger.debug("close(%s)", path)
-        if fh in self._write_descriptors:
-            assert self._has_ghost_file(path)
+        logger.debug("close(%s, %d)", path, fh)
+        if fh in self._sem_write_descriptors:
+            assert self._has_ghost_file(path) and PathInfo(path).is_tagged_file
             self._get_ghost_file(path).apply(fh)
             self._delete_ghost_file(path)
-            self._write_descriptors.remove(fh)
+            self._sem_write_descriptors.remove(fh)
 
         return os.close(fh)
 
