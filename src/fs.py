@@ -317,7 +317,7 @@ class SemanticFS(Operations):
               it removes the corresponding link in the graph. Doesn't
               fail if the tag is not empty.
          * Tagged folder:
-            - if path points to a folder directly under the entry poiny,
+            - if path points to a folder directly under the entry point,
               it completely deletes the folder. Fails if the folder is not
               empty, as would do the standard os call.
             - if path points to a folder with one or more tags, remove
@@ -372,6 +372,28 @@ class SemanticFS(Operations):
             os.rmdir(self._datastore_path(path))
 
     def mkdir(self, path, mode):
+        """
+         * Standard directory: standard behavior
+         * Entry point: creates the specified directory and adds the
+           necessary metadata.
+         * Tag:
+            - if path points to a tag directly under the entry point, it adds the folder
+              to the entry point and adds the relative node to the graph. Fails if the
+              tag did exist.
+            - if path points to a tag contained within another tag, it adds a link in the
+              graph from the containing tag to the new one (if the tag that is being
+              added didn't already exist within the semantic directory, it first adds the
+              node to the graph and the tag folder to the entry point).
+              Fails if the specified tag (associated to this semantic folder) is already
+              present within the destination path. In other words, a tag can't be added
+              if it has already been traversed.
+         * Tagged folder: create the folder directly under the entry point, and add
+              the appropriate tags. If the folder already exists under the entry point,
+              just add the tags.
+        :param path:
+        :param mode:
+        :raise FuseOSError:
+        """
         pathinfo = PathInfo(path)
         if pathinfo.is_tag:
             # Creating a new tag
@@ -401,14 +423,12 @@ class SemanticFS(Operations):
             # Adding a standard folder to a semantic directory
             logger.debug("Adding standard folder to semantic dir: %s", path)
             semfolder = self._get_semantic_folder(pathinfo.entrypoint)
-
             if semfolder.filetags.has_file(pathinfo.file):
-                # The name already exists within the namespace
-                raise FuseOSError(errno.EEXIST)
+                semfolder.filetags.assign_tags(pathinfo.file, pathinfo.tags)
             else:
                 os.mkdir(self._datastore_path(path), mode)
                 semfolder.filetags.add_file(pathinfo.file, pathinfo.tags)
-                self._save_semantic_folder(semfolder)
+            self._save_semantic_folder(semfolder)
 
         else:
             # No semantic parts... do a normal mkdir
