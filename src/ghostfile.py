@@ -15,6 +15,8 @@ class GhostFile(object):
 
         self.__rewritten_intervals = IntervalTree([Interval(0, self.__filesize)] if self.__filesize > 0 else None)
 
+        self.__data_path_reader = open(self.__data_path, 'rb')
+
     def truncate(self, length):
         """
         Example of some subsequent trucates:
@@ -132,15 +134,20 @@ class GhostFile(object):
         self._write_tree_to_real_file(fh)
         self.__rewritten_intervals = IntervalTree([Interval(0, self.__filesize)] if self.__filesize > 0 else None)
 
+    def release(self):
+        """
+        Releases the resources used by this GhostFile. This object will no longer be valid after
+        this method is called, so this should always be the last operation on this object.
+        """
+        self.__data_path_reader.close()
+
     @property
     def size(self):
         return self.__filesize
 
     def _is_same_data(self, buf, offset):
-        # TODO do not open the same file everytime... save the fh somewhere
-        with open(self.__data_path, 'rb') as f:
-            f.seek(offset)
-            olddata = f.read(len(buf))
+        self.__data_path_reader.seek(offset)
+        olddata = self.__data_path_reader.read(len(buf))
 
         return buf == olddata
 

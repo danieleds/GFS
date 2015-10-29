@@ -129,6 +129,7 @@ class SemanticFS(Operations):
         self._sem_writing_files_count[dspath, normpath] -= 1
         assert self._sem_writing_files_count[dspath, normpath] >= 0
         if self._sem_writing_files_count[dspath, normpath] == 0:
+            self._sem_writing_files[dspath, normpath].release()
             del self._sem_writing_files[dspath, normpath]
             del self._sem_writing_files_count[dspath, normpath]
 
@@ -351,7 +352,7 @@ class SemanticFS(Operations):
                     os.unlink(os.path.join(dspath, f))
                 os.rmdir(dspath)
             else:
-                raise FuseOSError(errno.ENOTEMPTY) # FIXME Fa la cosa giusta???
+                raise FuseOSError(errno.ENOTEMPTY)
 
         elif pathinfo.is_tagged_file:
             semfolder = self._get_semantic_folder(pathinfo.entrypoint)
