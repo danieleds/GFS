@@ -2,7 +2,7 @@ from graph import Graph
 from filestagsassociation import FilesTagsAssociation
 
 
-class SemanticFolder(object):
+class SemanticFolder:
 
     def __init__(self, path, graph=None, filetags=None):
         self.__path = path

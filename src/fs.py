@@ -75,7 +75,7 @@ class SemanticFS(Operations):
         Adds a ghost file for the specified virtual path.
         If a ghost file already exists for that path, it doesn't add another one but keeps track
         of this additional reference (see `SemanticFS._delete_ghost_file`).
-        :param ghost_path:
+        :param ghost_path: the virtual path for the ghost file
         :return: the added GhostFile
         """
         dspath = self._datastore_path(ghost_path)
@@ -95,7 +95,7 @@ class SemanticFS(Operations):
     def _has_ghost_file(self, ghost_path: str) -> bool:
         """
         Test whether a ghost file exists for the specified path.
-        :param ghost_path:
+        :param ghost_path: the virtual path to test
         :return:
         """
         dspath = self._datastore_path(ghost_path)
@@ -108,7 +108,7 @@ class SemanticFS(Operations):
     def _get_ghost_file(self, ghost_path: str) -> GhostFile:
         """
         Returns a ghost file for the specified path. If not present, raises a KeyError.
-        :param ghost_path:
+        :param ghost_path: the virtual path of the ghost file
         :return:
         """
         dspath = self._datastore_path(ghost_path)
@@ -121,7 +121,7 @@ class SemanticFS(Operations):
         Deletes the ghost file for the specified path. If the reference count associated to this
         ghost path is greater than 1, it just decreases the counter (see `SemanticFS._add_ghost_file`).
         If the ghost path is not present, raises a KeyError.
-        :param ghost_path:
+        :param ghost_path: the virtual path of the ghost file
         """
         dspath = self._datastore_path(ghost_path)
         normpath = os.path.normcase(os.path.normpath(ghost_path))
@@ -275,10 +275,10 @@ class SemanticFS(Operations):
         storepath = self._datastore_path(path)
 
         if os.path.isdir(storepath):
-            # FIXME Order??
             pathinfo = PathInfo(path)
             if pathinfo.is_tag:
                 folder = self._get_semantic_folder(pathinfo.entrypoint)
+                # Show tags first
                 dirents.extend(folder.graph.outgoing_arcs(pathinfo.tags[-1]))
                 dirents.extend(folder.filetags.tagged_files(pathinfo.tags))
             elif pathinfo.is_entrypoint:
@@ -481,7 +481,53 @@ class SemanticFS(Operations):
 
     def rename(self, old, new):
         # TODO
-        return os.rename(self._datastore_path(old), self._datastore_path(new))
+        pathinfo_old = PathInfo(old)
+        pathinfo_new = PathInfo(new)
+
+        # FIXME Dest is empty? Old = new?
+
+        if pathinfo_old.is_tagged_file and pathinfo_new.is_tagged_file \
+                and pathinfo_old.entrypoint == pathinfo_new.entrypoint:
+
+            # Moving a file within the same entry point.
+
+            # Moving over itself. This case should have already been prevented by FUSE!
+            assert not (pathinfo_old.file == pathinfo_new.file and set(pathinfo_old.tags) == set(pathinfo_new.tags))
+
+            if pathinfo_old.file != pathinfo_new.file \
+                    and set(pathinfo_old.tags) == set(pathinfo_new.tags):
+
+                # These cases:
+                #  * mv /_sem/_t1/x /_sem/_t1/y
+                #  * mv /_sem/x /_sem/y
+
+                # Rename the file in the root and in filestagsassociations
+                assert pathinfo_old.file != "" and pathinfo_new.file != ""
+                os.rename(self._datastore_path(old), self._datastore_path(new))
+                semfolder = self._get_semantic_folder(pathinfo_new.entrypoint)
+                semfolder.filetags.rename_file(pathinfo_old.file, pathinfo_new.file)
+                self._save_semantic_folder(semfolder)
+
+            elif pathinfo_old.file != pathinfo_new.file \
+                    and set(pathinfo_old.tags) != set(pathinfo_new.tags):
+
+                # mv /_sem/_t1/x /_sem/_t2/y is not supported
+                raise FuseOSError(errno.ENOTSUP)
+
+            elif pathinfo_old.file == pathinfo_new.file \
+                    and set(pathinfo_old.tags) != set(pathinfo_new.tags):
+
+                # These cases:
+                #  * mv /_sem/_t1/x /_sem/_t2/x
+                #  * mv /_sem/x /_sem/_t3/x
+                semfolder = self._get_semantic_folder(pathinfo_new.entrypoint)
+                if len(pathinfo_old.tags) > 0:
+                    semfolder.filetags.discard_tag(pathinfo_old.tags[-1])
+                semfolder.filetags.assign_tags(pathinfo_new.tags)
+                self._save_semantic_folder(semfolder)
+
+        else:
+            pass
 
     def link(self, target, name):
         # TODO

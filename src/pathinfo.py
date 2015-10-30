@@ -1,7 +1,7 @@
 import os
 
 
-class PathInfo(object):
+class PathInfo:
     SEMANTIC_PREFIX = '_'
 
     def __init__(self, path):

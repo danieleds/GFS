@@ -1,7 +1,7 @@
 import pickle
 
 
-class FilesTagsAssociation(object):
+class FilesTagsAssociation:
 
     def __init__(self):
         self._files = {}
@@ -31,6 +31,15 @@ class FilesTagsAssociation(object):
 
     def has_file(self, filename):
         return filename in self._files
+
+    def rename_file(self, old, new):
+        if old not in self._files:
+            raise ValueError('File name doesn\'t exists within the namespace')
+
+        if new in self._files:
+            raise ValueError('File name already exists within the namespace')
+
+        self._files[new] = self._files.pop(old)
 
     def assign_tag(self, filename, tag):
         if filename not in self._files:

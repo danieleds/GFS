@@ -3,7 +3,7 @@ import os
 from intervaltree import Interval, IntervalTree
 
 
-class GhostFile(object):
+class GhostFile:
 
     def __init__(self, datapath):
         self.__data_path = datapath
