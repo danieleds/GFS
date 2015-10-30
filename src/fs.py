@@ -154,6 +154,9 @@ class SemanticFS(Operations):
         assoc_file = os.path.join(storedir, SemanticFS.SEMANTIC_FS_ASSOC_FILE_NAME)
         semfolder.to_filename(graph_file, assoc_file)
 
+    def _semantic_folder_loader(self, path: str) -> SemanticFolderLoader:
+        return SemanticFolderLoader(self._datastore_path, path)
+
     def _exists(self, path: str) -> bool:
         """
         Test whether the specified virtual path exists in the file system.
@@ -520,11 +523,12 @@ class SemanticFS(Operations):
                 # These cases:
                 #  * mv /_sem/_t1/x /_sem/_t2/x
                 #  * mv /_sem/x /_sem/_t3/x
-                semfolder = self._get_semantic_folder(pathinfo_new.entrypoint)
-                if len(pathinfo_old.tags) > 0:
-                    semfolder.filetags.discard_tag(pathinfo_old.tags[-1])
-                semfolder.filetags.assign_tags(pathinfo_new.tags)
-                self._save_semantic_folder(semfolder)
+                with self._semantic_folder_loader(pathinfo_new.entrypoint) as semfolder:
+                    # semfolder = self._get_semantic_folder(pathinfo_new.entrypoint)
+                    if len(pathinfo_old.tags) > 0:
+                        semfolder.filetags.discard_tag(pathinfo_old.tags[-1])
+                    semfolder.filetags.assign_tags(pathinfo_new.tags)
+                    # self._save_semantic_folder(semfolder)
 
         else:
             pass
@@ -630,6 +634,27 @@ class SemanticFS(Operations):
     def fsync(self, path, fdatasync, fh):
         # TODO
         return self.flush(path, fh)
+
+
+class SemanticFolderLoader:
+
+    def __init__(self, path_conversion_fun, virtual_path):
+        self._path_conversion_fun = path_conversion_fun
+        self._path = virtual_path
+
+    def __enter__(self):
+        storedir = self._path_conversion_fun(self._path)
+        graph_file = os.path.join(storedir, SemanticFS.SEMANTIC_FS_GRAPH_FILE_NAME)
+        assoc_file = os.path.join(storedir, SemanticFS.SEMANTIC_FS_ASSOC_FILE_NAME)
+        return SemanticFolder.from_filename(graph_file, assoc_file, self._path)
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        assert exc_type is SemanticFolder
+        # Save semfolder to disk
+        storedir = self._path_conversion_fun(self._path)
+        graph_file = os.path.join(storedir, SemanticFS.SEMANTIC_FS_GRAPH_FILE_NAME)
+        assoc_file = os.path.join(storedir, SemanticFS.SEMANTIC_FS_ASSOC_FILE_NAME)
+        exc_val.to_filename(graph_file, assoc_file)
 
 
 def main(mountpoint, root):
