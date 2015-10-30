@@ -332,6 +332,7 @@ class SemanticFS(Operations):
             assert len(pathinfo.tags) >= 1
 
             if len(pathinfo.tags) == 1:
+                # Removing the tag in the entry point's root
                 os.rmdir(self._datastore_path(path))
                 semfolder.graph.remove_node(pathinfo.tags[-1])
             else:
