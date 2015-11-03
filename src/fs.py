@@ -233,10 +233,21 @@ class SemanticFS(Operations):
                 raise FuseOSError(errno.ENOTSUP)
             else:
                 # Convert src dir to a tag
-                pass
+                # TODO Not specified
+                raise FuseOSError(errno.ENOTSUP)
         elif new_is_tagged_obj:
             # Move this obj to the destination entry point, then add the tags.
-            pass
+            if is_file:
+                semfolder = self._get_semantic_folder(pathinfo_new.entrypoint)
+                os.rename(old_dspath, new_dspath)
+                try:
+                    semfolder.filetags.add_file(pathinfo_new.file, pathinfo_new.tags)
+                except ValueError:
+                    semfolder.filetags.assign_tags(pathinfo_new.file, pathinfo_new.tags)
+                self._save_semantic_folder(semfolder)
+            else:
+                # TODO Not specified
+                raise FuseOSError(errno.ENOTSUP)
         else:
             # Impossible!
             assert False, "Impossible destination"
