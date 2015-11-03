@@ -23,6 +23,8 @@ class SemanticFS(Operations):
     SEMANTIC_FS_ASSOC_FILE_NAME = PathInfo.SEMANTIC_PREFIX + '$$_SEMANTIC_FS_ASSOC_FILE_$$'
 
     def __init__(self, datastore_root):
+        super().__init__()
+
         self._dsroot = datastore_root
 
         self._sem_writing_files = {}  # Ghostfiles for semantic files opened for write
@@ -101,8 +103,8 @@ class SemanticFS(Operations):
         dspath = self._datastore_path(ghost_path)
         normpath = os.path.normcase(os.path.normpath(ghost_path))
         assert ((dspath, normpath) in self._sem_writing_files) == \
-               ((dspath, normpath) in self._sem_writing_files_count
-                and self._sem_writing_files_count[dspath, normpath] > 0)
+               ((dspath, normpath) in self._sem_writing_files_count and
+                self._sem_writing_files_count[dspath, normpath] > 0)
         return (dspath, normpath) in self._sem_writing_files
 
     def _get_ghost_file(self, ghost_path: str) -> GhostFile:
@@ -358,7 +360,7 @@ class SemanticFS(Operations):
 
                     # Rename the file in the root and in filestagsassociations
                     assert pathinfo_old.file != "" and pathinfo_new.file != ""
-                    os.rename(self._datastore_path(old), self._datastore_path(new))
+                    os.rename(old_dspath, new_dspath)
                     semfolder = self._get_semantic_folder(pathinfo_new.entrypoint)
                     semfolder.filetags.rename_file(pathinfo_old.file, pathinfo_new.file)
                     self._save_semantic_folder(semfolder)
@@ -395,7 +397,7 @@ class SemanticFS(Operations):
         """
         lowername = os.path.normpath(os.sep + name.lower())
         return lowername.endswith(os.sep + SemanticFS.SEMANTIC_FS_GRAPH_FILE_NAME.lower()) \
-               or lowername.endswith(os.sep + SemanticFS.SEMANTIC_FS_ASSOC_FILE_NAME.lower())
+            or lowername.endswith(os.sep + SemanticFS.SEMANTIC_FS_ASSOC_FILE_NAME.lower())
 
     @staticmethod
     def _stringify_open_flags(flags):
@@ -404,7 +406,7 @@ class SemanticFS(Operations):
                  "O_NDELAY", "O_NONBLOCK", "O_NOCTTY", "O_SHLOCK", "O_EXLOCK",
                  "O_BINARY", "O_NOINHERIT", "O_SHORT_LIVED", "O_TEMPORARY",
                  "O_RANDOM", "O_SEQUENTIAL", "O_TEXT", "O_ASYNC", "O_DIRECT",
-                 "O_DIRECTORY", "O_NOFOLLOW", "O_NOATIME" ]
+                 "O_DIRECTORY", "O_NOFOLLOW", "O_NOATIME"]
 
         active_flags = []
 
@@ -476,8 +478,8 @@ class SemanticFS(Operations):
                 dirents.extend(os.listdir(storepath))
 
             # Remove reserved names and already traversed tags
-            dirents = [x for x in dirents if not SemanticFS._is_reserved_name(x)
-                       and x not in pathinfo.tags]
+            dirents = [x for x in dirents if not SemanticFS._is_reserved_name(x) and
+                       x not in pathinfo.tags]
 
         for r in ['.', '..'] + dirents:
             yield r
@@ -550,7 +552,7 @@ class SemanticFS(Operations):
 
             if len(pathinfo.tags) == 0:
                 # If it's directly under the entry point, delete it.
-                os.rmdir(self._datastore_path(path)) # Raises error if dir is not empty
+                os.rmdir(self._datastore_path(path))  # Raises error if dir is not empty
                 semfolder.filetags.remove_file(pathinfo.file)
             else:
                 # If it's a tagged path, remove the last tag.
