@@ -200,24 +200,19 @@ class SemanticFS(Operations):
         return os.path.lexists(self._datastore_path(path))
 
     def _move_standard_obj(self, pathinfo_old, pathinfo_new):
+        """
+        Helper method for renaming a standard file or folder.
+        :param pathinfo_old:
+        :param pathinfo_new:
+        """
         old_dspath = self._datastore_path(pathinfo_old.path)
         new_dspath = self._datastore_path(pathinfo_new.path)
+        r = RenameHelperAttrs(pathinfo_old, pathinfo_new, old_dspath)
 
-        is_file = os.path.isfile(old_dspath)  # Is it a file or a folder?
-        old_is_standard_obj = not (pathinfo_old.is_tagged_object or pathinfo_old.is_tag or pathinfo_old.is_entrypoint)
-        new_is_standard_obj = not (pathinfo_new.is_tagged_object or pathinfo_new.is_tag or pathinfo_new.is_entrypoint)
-        old_is_entry_point = pathinfo_old.is_entrypoint
-        new_is_entry_point = pathinfo_new.is_entrypoint
-        old_is_tag = pathinfo_old.is_tag
-        new_is_tag = pathinfo_new.is_tag
-        old_is_tagged_obj = pathinfo_old.is_tagged_object
-        new_is_tagged_obj = pathinfo_new.is_tagged_object
-        same_semantic_space = pathinfo_old.entrypoint == pathinfo_new.entrypoint
-
-        if new_is_standard_obj:
+        if r.new_is_standard_obj:
             os.rename(old_dspath, new_dspath)
-        elif new_is_entry_point:
-            if is_file:
+        elif r.new_is_entry_point:
+            if r.is_file:
                 # Fail: trying to convert a file to an entry point
                 raise FuseOSError(errno.ENOTSUP)
             else:
@@ -227,17 +222,17 @@ class SemanticFS(Operations):
                 for f in os.listdir(new_dspath):
                     semfolder.filetags.add_file(f)
                 self._save_semantic_folder(semfolder)
-        elif new_is_tag:
-            if is_file:
+        elif r.new_is_tag:
+            if r.is_file:
                 # Fail: trying to convert a file to a tag
                 raise FuseOSError(errno.ENOTSUP)
             else:
                 # Convert src dir to a tag
                 # TODO Not specified
                 raise FuseOSError(errno.ENOTSUP)
-        elif new_is_tagged_obj:
+        elif r.new_is_tagged_obj:
             # Move this obj to the destination entry point, then add the tags.
-            if is_file:
+            if r.is_file:
                 semfolder = self._get_semantic_folder(pathinfo_new.entrypoint)
                 os.rename(old_dspath, new_dspath)
                 try:
@@ -253,30 +248,25 @@ class SemanticFS(Operations):
             assert False, "Impossible destination"
 
     def _move_entry_point(self, pathinfo_old, pathinfo_new):
+        """
+        Helper method for renaming an entry point.
+        :param pathinfo_old:
+        :param pathinfo_new:
+        """
         old_dspath = self._datastore_path(pathinfo_old.path)
         new_dspath = self._datastore_path(pathinfo_new.path)
+        r = RenameHelperAttrs(pathinfo_old, pathinfo_new, old_dspath)
 
-        is_file = os.path.isfile(old_dspath)  # Is it a file or a folder?
-        old_is_standard_obj = not (pathinfo_old.is_tagged_object or pathinfo_old.is_tag or pathinfo_old.is_entrypoint)
-        new_is_standard_obj = not (pathinfo_new.is_tagged_object or pathinfo_new.is_tag or pathinfo_new.is_entrypoint)
-        old_is_entry_point = pathinfo_old.is_entrypoint
-        new_is_entry_point = pathinfo_new.is_entrypoint
-        old_is_tag = pathinfo_old.is_tag
-        new_is_tag = pathinfo_new.is_tag
-        old_is_tagged_obj = pathinfo_old.is_tagged_object
-        new_is_tagged_obj = pathinfo_new.is_tagged_object
-        same_semantic_space = pathinfo_old.entrypoint == pathinfo_new.entrypoint
-
-        assert not is_file
-        if new_is_standard_obj:
+        assert not r.is_file
+        if r.new_is_standard_obj:
             # Convert entry point to a standard folder
             pass
-        elif new_is_entry_point:
+        elif r.new_is_entry_point:
             os.rename(old_dspath, new_dspath)
-        elif new_is_tag:
+        elif r.new_is_tag:
             # Convert entry point to a tag
             pass
-        elif new_is_tagged_obj:
+        elif r.new_is_tagged_obj:
             # Convert entry point to a standard folder and tag it
             pass
         else:
@@ -284,37 +274,31 @@ class SemanticFS(Operations):
             assert False, "Impossible destination"
 
     def _move_tag(self, pathinfo_old, pathinfo_new):
+        """
+        Helper method for renaming a tag.
+        :param pathinfo_old:
+        :param pathinfo_new:
+        """
         old_dspath = self._datastore_path(pathinfo_old.path)
-        new_dspath = self._datastore_path(pathinfo_new.path)
+        r = RenameHelperAttrs(pathinfo_old, pathinfo_new, old_dspath)
 
-        is_file = os.path.isfile(old_dspath)  # Is it a file or a folder?
-        old_is_standard_obj = not (pathinfo_old.is_tagged_object or pathinfo_old.is_tag or pathinfo_old.is_entrypoint)
-        new_is_standard_obj = not (pathinfo_new.is_tagged_object or pathinfo_new.is_tag or pathinfo_new.is_entrypoint)
-        old_is_entry_point = pathinfo_old.is_entrypoint
-        new_is_entry_point = pathinfo_new.is_entrypoint
-        old_is_tag = pathinfo_old.is_tag
-        new_is_tag = pathinfo_new.is_tag
-        old_is_tagged_obj = pathinfo_old.is_tagged_object
-        new_is_tagged_obj = pathinfo_new.is_tagged_object
-        same_semantic_space = pathinfo_old.entrypoint == pathinfo_new.entrypoint
-
-        assert not is_file
-        if new_is_standard_obj:
+        assert not r.is_file
+        if r.new_is_standard_obj:
             # Convert tag to a standard folder
             pass
-        elif new_is_entry_point:
+        elif r.new_is_entry_point:
             # Convert tag to an entry point
             pass
-        elif new_is_tag:
-            if same_semantic_space:
+        elif r.new_is_tag:
+            if r.same_semantic_space:
                 # Rename the tag
                 pass
             else:
                 # Not permitted?
                 pass
-        elif new_is_tagged_obj:
+        elif r.new_is_tagged_obj:
             # Convert tag to a standard folder and tag it
-            if same_semantic_space:
+            if r.same_semantic_space:
                 pass
             else:
                 pass
@@ -323,42 +307,37 @@ class SemanticFS(Operations):
             assert False, "Impossible destination"
 
     def _move_tagged_obj(self, pathinfo_old: PathInfo, pathinfo_new: PathInfo):
+        """
+        Helper method for renaming a tagged file or folder.
+        :param pathinfo_old:
+        :param pathinfo_new:
+        """
         old_dspath = self._datastore_path(pathinfo_old.path)
         new_dspath = self._datastore_path(pathinfo_new.path)
+        r = RenameHelperAttrs(pathinfo_old, pathinfo_new, old_dspath)
 
-        is_file = os.path.isfile(old_dspath)  # Is it a file or a folder?
-        old_is_standard_obj = not (pathinfo_old.is_tagged_object or pathinfo_old.is_tag or pathinfo_old.is_entrypoint)
-        new_is_standard_obj = not (pathinfo_new.is_tagged_object or pathinfo_new.is_tag or pathinfo_new.is_entrypoint)
-        old_is_entry_point = pathinfo_old.is_entrypoint
-        new_is_entry_point = pathinfo_new.is_entrypoint
-        old_is_tag = pathinfo_old.is_tag
-        new_is_tag = pathinfo_new.is_tag
-        old_is_tagged_obj = pathinfo_old.is_tagged_object
-        new_is_tagged_obj = pathinfo_new.is_tagged_object
-        same_semantic_space = pathinfo_old.entrypoint == pathinfo_new.entrypoint
-
-        if new_is_standard_obj:
+        if r.new_is_standard_obj:
             # Remove the object from src and put it outside
             pass
-        elif new_is_entry_point:
-            if is_file:
+        elif r.new_is_entry_point:
+            if r.is_file:
                 # Fail: trying to convert a file to an entry point
                 raise FuseOSError(errno.ENOTSUP)
             else:
                 # Convert src dir to an entry point
                 pass
-        elif new_is_tag:
-            if is_file:
+        elif r.new_is_tag:
+            if r.is_file:
                 # Fail: trying to convert a file to a tag
                 raise FuseOSError(errno.ENOTSUP)
             else:
                 # Convert src dir to a tag
-                if same_semantic_space:
+                if r.same_semantic_space:
                     pass
                 else:
                     pass
-        elif new_is_tagged_obj:
-            if same_semantic_space:
+        elif r.new_is_tagged_obj:
+            if r.same_semantic_space:
                 # Moving over itself. This case should have already been prevented by FUSE!
                 assert not (pathinfo_old.file == pathinfo_new.file and set(pathinfo_old.tags) == set(pathinfo_new.tags))
 
@@ -700,17 +679,14 @@ class SemanticFS(Operations):
         # | Tagged folder | OK       | OK          | OK if empty | OK              |
         # +---------------+----------+-------------+-------------+-----------------+
 
-        if not pathinfo_old.is_tagged_object and not pathinfo_old.is_tag and not pathinfo_old.is_entrypoint:
-            self._move_standard_obj(pathinfo_old, pathinfo_new)
-        elif pathinfo_old.is_entrypoint:
+        if pathinfo_old.is_entrypoint:
             self._move_entry_point(pathinfo_old, pathinfo_new)
         elif pathinfo_old.is_tag:
             self._move_tag(pathinfo_old, pathinfo_new)
         elif pathinfo_old.is_tagged_object:
             self._move_tagged_obj(pathinfo_old, pathinfo_new)
         else:
-            # Impossible!
-            assert False, "Impossible source"
+            self._move_standard_obj(pathinfo_old, pathinfo_new)
 
     def link(self, target, name):
         # TODO
@@ -814,6 +790,26 @@ class SemanticFS(Operations):
     def fsync(self, path, fdatasync, fh):
         # TODO
         return self.flush(path, fh)
+
+
+class RenameHelperAttrs:
+    """
+    Provides a set of attributes useful when renaming an object of the file system.
+    """
+
+    def __init__(self, pathinfo_old, pathinfo_new, dspath_old):
+        self.is_file = os.path.isfile(dspath_old)  # Is it a file or a folder?
+        self.old_is_standard_obj = \
+            not (pathinfo_old.is_tagged_object or pathinfo_old.is_tag or pathinfo_old.is_entrypoint)
+        self.new_is_standard_obj = \
+            not (pathinfo_new.is_tagged_object or pathinfo_new.is_tag or pathinfo_new.is_entrypoint)
+        self.old_is_entry_point = pathinfo_old.is_entrypoint
+        self.new_is_entry_point = pathinfo_new.is_entrypoint
+        self.old_is_tag = pathinfo_old.is_tag
+        self.new_is_tag = pathinfo_new.is_tag
+        self.old_is_tagged_obj = pathinfo_old.is_tagged_object
+        self.new_is_tagged_obj = pathinfo_new.is_tagged_object
+        self.same_semantic_space = pathinfo_old.entrypoint == pathinfo_new.entrypoint
 
 
 def main(mountpoint, root):
