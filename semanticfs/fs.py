@@ -795,9 +795,9 @@ class SemanticFS(Operations):
         return self.flush(path, fh)
 
 
-def main(mountpoint, root):
+def start(mountpoint, root):
     FUSE(SemanticFS(root), mountpoint, nothreads=True, foreground=True)
 
 
 if __name__ == '__main__':
-    main(sys.argv[2], sys.argv[1])
+    start(sys.argv[2], sys.argv[1])
