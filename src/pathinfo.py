@@ -41,7 +41,7 @@ class PathInfo:
         return self.__tags
 
     @property
-    def file(self) -> str:
+    def tagged_object(self) -> str:
         return self.__file
 
     @property
@@ -56,7 +56,7 @@ class PathInfo:
         For example, returns True for "/a/_b/_c", "/a/_b/_c/_d", but False for "/a/_b/".
         :return:
         """
-        return self.entrypoint != '' and len(self.tags) > 0 and self.file == ''
+        return self.entrypoint != '' and len(self.tags) > 0 and self.tagged_object == ''
 
     @property
     def is_entrypoint(self) -> bool:
@@ -66,7 +66,7 @@ class PathInfo:
         For example, returns True for "/_a", "/a/_b", "/a/_b/_c/d/_e", but False for "/a", "a/_b/_c".
         :return:
         """
-        return self.entrypoint != '' and len(self.tags) == 0 and self.file == ''
+        return self.entrypoint != '' and len(self.tags) == 0 and self.tagged_object == ''
 
     @property
     def is_tagged_object(self) -> bool:
@@ -77,7 +77,11 @@ class PathInfo:
         For example, returns True for "/a/_b/x", "/a/_b/_c/x", but False for "/a/_b/_c", "/a/_b", "/a/b".
         :return:
         """
-        return self.entrypoint != '' and self.file != ''
+        return self.entrypoint != '' and self.tagged_object != ''
+
+    @property
+    def is_standard_object(self) -> bool:
+        return not self.is_entrypoint and not self.is_tag and not self.is_tagged_object
 
     @staticmethod
     def is_semantic_name(name) -> bool:
