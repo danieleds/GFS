@@ -2,7 +2,7 @@ import sys
 import os
 
 from fs import SemanticFS
-from semanticfolder import SemanticFolder
+from semanticfs.semanticfolder import SemanticFolder
 
 
 def main(operation, path):

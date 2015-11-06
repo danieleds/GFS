@@ -9,9 +9,9 @@ import logging
 
 from fuse import FUSE, FuseOSError, Operations
 
-from semanticfolder import SemanticFolder
-from pathinfo import PathInfo
-from ghostfile import GhostFile
+from semanticfs.semanticfolder import SemanticFolder
+from semanticfs.pathinfo import PathInfo
+from semanticfs.ghostfile import GhostFile
 
 logging.basicConfig(level=logging.DEBUG)
 logger = logging.getLogger('SemanticFSLogger')
@@ -44,6 +44,10 @@ class SemanticFS(Operations):
         :param virtualpath: an absolute virtual path
         :return:
         """
+
+        # TODO Using a 1-1 mapping for file names, we inherit the limitations of the underlying fs (e.g.
+        # special file names, unallowed characters, case sensitivity, etc. In addition, this fs will
+        # behave differently depending on the file system on which it's run.
 
         if not os.path.isabs(virtualpath):
             raise ValueError("virtualpath should be absolute")
