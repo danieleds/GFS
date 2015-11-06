@@ -368,8 +368,8 @@ class SemanticFS(Operations):
                     #  * mv /_sem/x /_sem/_t3/x
                     semfolder = self._get_semantic_folder(new.entrypoint)
                     if len(old.tags) > 0:
-                        semfolder.filetags.discard_tag(old.tags[-1])
-                    semfolder.filetags.assign_tags(new.tags)
+                        semfolder.filetags.discard_tag(old.tagged_object, old.tags[-1])
+                    semfolder.filetags.assign_tags(new.tagged_object, new.tags)
                     self._save_semantic_folder(semfolder)
             else:
                 pass
