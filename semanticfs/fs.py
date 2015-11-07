@@ -9,9 +9,10 @@ import logging
 
 from fuse import FUSE, FuseOSError, Operations
 
-from semanticfs.semanticfolder import SemanticFolder
-from semanticfs.pathinfo import PathInfo
-from semanticfs.ghostfile import GhostFile
+from semanticfolder import SemanticFolder
+from pathinfo import PathInfo
+from ghostfile import GhostFile
+
 
 logging.basicConfig(level=logging.DEBUG)
 logger = logging.getLogger('SemanticFSLogger')

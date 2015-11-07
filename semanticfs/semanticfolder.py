@@ -1,5 +1,5 @@
-from .graph import Graph
-from .filestagsassociation import FilesTagsAssociation
+from graph import Graph
+from filestagsassociation import FilesTagsAssociation
 
 
 class SemanticFolder:
