@@ -1,2 +1,5 @@
 pip3 install fusepy
 pip3 install intervaltree
+
+
+python3 -m semanticfs.fs /tmp/ds /tmp/fs
