@@ -5,6 +5,7 @@ from __future__ import with_statement
 import os
 import sys
 import errno
+import shutil
 import logging
 
 from fuse import FUSE, FuseOSError, Operations
@@ -266,15 +267,18 @@ class SemanticFS(Operations):
         assert not is_file
         if new.is_standard_object:
             # Convert entry point to a standard folder
-            pass
+            # TODO Not specified
+            raise FuseOSError(errno.ENOTSUP)
         elif new.is_entrypoint:
             os.rename(old_dspath, new_dspath)
         elif new.is_tag:
             # Convert entry point to a tag
-            pass
+            # TODO Not specified
+            raise FuseOSError(errno.ENOTSUP)
         elif new.is_tagged_object:
             # Convert entry point to a standard folder and tag it
-            pass
+            # TODO Not specified
+            raise FuseOSError(errno.ENOTSUP)
         else:
             # Impossible!
             assert False, "Impossible destination"
@@ -286,23 +290,43 @@ class SemanticFS(Operations):
         :param new:
         """
         old_dspath = self._datastore_path(old.path)
+        new_dspath = self._datastore_path(new.path)
         is_file = os.path.isfile(old_dspath)
         same_semantic_space = old.entrypoint == new.entrypoint
 
         assert not is_file
         if new.is_standard_object:
             # Convert tag to a standard folder
-            pass
+            # For each object in intersection of old semfolder:
+            #   Remove the last tag
+            # Create the new Directory
+            #   And put the files in it
+            # Remove node link in graph
+            semfolder = self._get_semantic_folder(old.entrypoint)
+            os.mkdir(new_dspath)
+            files = semfolder.filetags.tagged_files(old.tags)
+            for f in files:
+                semfolder.filetags.discard_tag(f, old.tags[-1])
+                file_dspath = self._datastore_path(os.path.join(old.path, f))
+                if os.path.isfile(file_dspath):
+                    shutil.copy2(file_dspath, new_dspath)
+                else:
+                    shutil.copytree(file_dspath, os.path.join(new_dspath, f))
+            self._rmdir_tag(old, semfolder)
+            self._save_semantic_folder(semfolder)
+
         elif new.is_entrypoint:
             # Convert tag to an entry point
-            pass
+            # TODO Not specified
+            raise FuseOSError(errno.ENOTSUP)
         elif new.is_tag:
             if same_semantic_space:
                 # Rename the tag
                 pass
             else:
                 # Not permitted?
-                pass
+                # TODO Not specified
+                raise FuseOSError(errno.ENOTSUP)
         elif new.is_tagged_object:
             # Convert tag to a standard folder and tag it
             if same_semantic_space:
@@ -382,6 +406,16 @@ class SemanticFS(Operations):
         else:
             # Impossible!
             assert False, "Impossible destination"
+
+    def _rmdir_tag(self, path: PathInfo, semfolder: SemanticFolder):
+        assert len(path.tags) >= 1
+
+        if len(path.tags) == 1:
+            # Removing the tag in the entry point's root
+            os.rmdir(self._datastore_path(path.path))
+            semfolder.graph.remove_node(path.tags[-1])
+        else:
+            semfolder.graph.remove_arc(path.tags[-2], path.tags[-1])
 
     @staticmethod
     def _is_reserved_name(name: str) -> bool:
@@ -515,15 +549,7 @@ class SemanticFS(Operations):
         pathinfo = PathInfo(path)
         if pathinfo.is_tag:
             semfolder = self._get_semantic_folder(pathinfo.entrypoint)
-            assert len(pathinfo.tags) >= 1
-
-            if len(pathinfo.tags) == 1:
-                # Removing the tag in the entry point's root
-                os.rmdir(self._datastore_path(path))
-                semfolder.graph.remove_node(pathinfo.tags[-1])
-            else:
-                semfolder.graph.remove_arc(pathinfo.tags[-2], pathinfo.tags[-1])
-
+            self._rmdir_tag(pathinfo, semfolder)
             self._save_semantic_folder(semfolder)
 
         elif pathinfo.is_entrypoint:

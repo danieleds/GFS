@@ -32,6 +32,8 @@ class PathInfo:
             self.__tags = []
             self.__file = ''
 
+        assert self.is_tag ^ self.is_entrypoint ^ self.is_tagged_object ^ self.is_standard_object
+
     @property
     def entrypoint(self) -> str:
         return self.__entrypoint
