@@ -1,4 +1,5 @@
 import pickle
+import itertools
 
 
 class Graph:
@@ -36,9 +37,26 @@ class Graph:
         del self._adjacency_out[name]
         del self._adjacency_in[name]
 
+    def rename_node(self, old, new):
+        if not self.has_node(old):
+            raise ValueError('Node is missing')
+
+        if self.has_node(new):
+            raise ValueError('Node name already exists')
+
+        self._adjacency_in[new] = self._adjacency_in.pop(old)
+        self._adjacency_out[new] = self._adjacency_out.pop(old)
+        for key, nodes in itertools.chain(self._adjacency_in.items(), self._adjacency_out.items()):
+            assert isinstance(nodes, set)
+            nodes.discard(old)
+            nodes.add(new)
+
     def has_node(self, name) -> bool:
         assert (name in self._adjacency_out) == (name in self._adjacency_in)
         return name in self._adjacency_out
+
+    def nodes(self):
+        return self._adjacency_in.keys()
 
     def has_arc(self, from_node, to_node) -> bool:
         assert (to_node in self._adjacency_out[from_node]) == (from_node in self._adjacency_in[to_node])

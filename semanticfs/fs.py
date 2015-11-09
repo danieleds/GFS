@@ -319,10 +319,35 @@ class SemanticFS(Operations):
             # Convert tag to an entry point
             # TODO Not specified
             raise FuseOSError(errno.ENOTSUP)
+
         elif new.is_tag:
             if same_semantic_space:
                 # Rename the tag
-                pass
+                if old.tags[0:-1] == new.tags[0:-1] and old.tags[-1] != new.tags[-1]:
+                    # Rename the node
+                    semfolder = self._get_semantic_folder(old.entrypoint)
+                    os.rename(old_dspath, new_dspath)
+                    semfolder.graph.rename_node(old.tags[-1], new.tags[-1])
+                    semfolder.filetags.rename_tag(old.tags[-1], new.tags[-1])
+                    self._save_semantic_folder(semfolder)
+
+                elif old.tags[0:-1] != new.tags[0:-1] and old.tags[-1] == new.tags[-1]:
+                    if len(old.tags) >= 2:
+                        semfolder = self._get_semantic_folder(old.entrypoint)
+                        semfolder.graph.remove_arc(old.tags[-2], old.tags[-1])
+                        semfolder.graph.add_arc(new.tags[-2], new.tags[-1])
+                        self._save_semantic_folder(semfolder)
+                    else:
+                        # He's trying to move the tag from the root! Not permitted?
+                        # TODO Not specified
+                        raise FuseOSError(errno.ENOTSUP)
+
+                elif old.tags[0:-1] != new.tags[0:-1] and old.tags[-1] != new.tags[-1]:
+                    # TODO Not specified
+                    raise FuseOSError(errno.ENOTSUP)
+
+                else:
+                    assert False, "Impossible destination"
             else:
                 # Not permitted?
                 # TODO Not specified
@@ -414,6 +439,8 @@ class SemanticFS(Operations):
             # Removing the tag in the entry point's root
             os.rmdir(self._datastore_path(path.path))
             semfolder.graph.remove_node(path.tags[-1])
+            for f in semfolder.filetags.tagged_files(path.tags[-1]):
+                semfolder.filetags.discard_tag(f, path.tags[-1])
         else:
             semfolder.graph.remove_arc(path.tags[-2], path.tags[-1])
 

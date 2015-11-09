@@ -1,7 +1,7 @@
 import sys
 import os
 
-from fs import SemanticFS
+from semanticfs.fs import SemanticFS
 from semanticfs.semanticfolder import SemanticFolder
 
 
@@ -11,6 +11,11 @@ def main(operation, path):
         print('Files:')
         for file in folder.filetags.files():
             print(file + ' --> ' + str(folder.filetags.tags(file)))
+
+        print('')
+        print('Tags:')
+        for tag in folder.graph.nodes():
+            print(tag)
 
 
 def _get_semantic_folder(path):

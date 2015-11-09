@@ -65,6 +65,12 @@ class FilesTagsAssociation:
 
         self._files[filename].difference_update(tags)
 
+    def rename_tag(self, old, new):
+        for filename, filetags in self._files.items():
+            assert isinstance(filetags, set)
+            filetags.discard(old)
+            filetags.add(new)
+
     def has_tag(self, filename, tag):
         if filename not in self._files:
             raise ValueError('File name doesn\'t exists within the namespace')
