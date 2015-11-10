@@ -48,7 +48,7 @@ class SemanticFS(Operations):
         :return:
         """
 
-        # TODO Using a 1-1 mapping for file names, we inherit the limitations of the underlying fs (e.g.
+        # NB: Using a 1-1 mapping for file names, we inherit the limitations of the underlying fs (e.g.
         # special file names, unallowed characters, case sensitivity, etc. In addition, this fs will
         # behave differently depending on the file system on which it's run.
 
@@ -545,8 +545,23 @@ class SemanticFS(Operations):
         return pathname
 
     def mknod(self, path, mode, dev):
-        # TODO
-        return os.mknod(self._datastore_path(path), mode, dev)
+        logger.debug("mknod(%s)", path)
+
+        pathinfo = PathInfo(path)
+        dspath = self._datastore_path(path)
+        os.mknod(dspath, mode, dev)
+
+        # FIXME Should we allow files starting with the semantic prefix?
+        if not (pathinfo.is_tagged_object or pathinfo.is_standard_object):
+            raise FuseOSError(errno.ENOTSUP)
+
+        if pathinfo.is_tagged_object:
+            semfolder = self._get_semantic_folder(pathinfo.entrypoint)
+            if semfolder.filetags.has_file(pathinfo.tagged_object):
+                semfolder.filetags.assign_tags(pathinfo.tagged_object, pathinfo.tags)
+            else:
+                semfolder.filetags.add_file(pathinfo.tagged_object, pathinfo.tags)
+            self._save_semantic_folder(semfolder)
 
     def rmdir(self, path):
         """
@@ -710,6 +725,8 @@ class SemanticFS(Operations):
             os.unlink(self._datastore_path(path))
 
     def symlink(self, name, target):
+        logger.debug("symlink(%s, %s)", name, target)
+        # FIXME Target name shouldn't start with _ if name isn't!!
         # TODO Maybe we should make relative symlinks fail if done within a semdir
         return os.symlink(target, self._datastore_path(name))
 
@@ -741,11 +758,9 @@ class SemanticFS(Operations):
             self._move_standard_obj(pathinfo_old, pathinfo_new)
 
     def link(self, target, name):
-        # TODO
-        return os.link(self._datastore_path(target), self._datastore_path(name))
+        raise FuseOSError(errno.ENOTSUP)
 
     def utimens(self, path, times=None):
-        # TODO
         return os.utime(self._datastore_path(path), times)
 
     # File methods
@@ -783,6 +798,8 @@ class SemanticFS(Operations):
         logger.debug("create(%s, %s) -> %d", path, SemanticFS._stringify_open_flags(os.O_WRONLY | os.O_CREAT), f)
 
         # FIXME Should we allow files starting with the semantic prefix?
+        if not (pathinfo.is_tagged_object or pathinfo.is_standard_object):
+            raise FuseOSError(errno.ENOTSUP)
 
         if pathinfo.is_tagged_object:
             # FIXME What if path == dspath??? Maybe already works, just check.
