@@ -541,13 +541,8 @@ class SemanticFS(Operations):
             yield r
 
     def readlink(self, path):
-        # TODO
         pathname = os.readlink(self._datastore_path(path))
-        if pathname.startswith("/"):
-            # Path name is absolute, sanitize it.
-            return os.path.relpath(pathname, self._dsroot)
-        else:
-            return pathname
+        return pathname
 
     def mknod(self, path, mode, dev):
         # TODO
@@ -715,11 +710,10 @@ class SemanticFS(Operations):
             os.unlink(self._datastore_path(path))
 
     def symlink(self, name, target):
-        # TODO
-        return os.symlink(name, self._datastore_path(target))
+        # TODO Maybe we should make relative symlinks fail if done within a semdir
+        return os.symlink(target, self._datastore_path(name))
 
     def rename(self, old, new):
-        # TODO
         pathinfo_old = PathInfo(old)
         pathinfo_new = PathInfo(new)
 
