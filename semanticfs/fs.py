@@ -805,7 +805,6 @@ class SemanticFS(Operations):
         pathinfo_old = PathInfo(old)
         pathinfo_new = PathInfo(new)
 
-        # FIXME Dest is empty?
         # Fusepy should block these possibilities:
         assert pathinfo_old != pathinfo_new
         assert not self._is_reserved_name(os.path.basename(old))
