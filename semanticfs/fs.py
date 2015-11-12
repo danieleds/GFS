@@ -302,18 +302,7 @@ class SemanticFS(Operations):
             # Create the new Directory
             #   And put the files in it
             # Remove node link in graph
-            semfolder = self._get_semantic_folder(old.entrypoint)
-            os.mkdir(new_dspath)
-            files = semfolder.filetags.tagged_files(old.tags)
-            for f in files:
-                semfolder.filetags.discard_tag(f, old.tags[-1])
-                file_dspath = self._datastore_path(os.path.join(old.path, f))
-                if os.path.isfile(file_dspath):
-                    shutil.copy2(file_dspath, new_dspath)
-                else:
-                    shutil.copytree(file_dspath, os.path.join(new_dspath, f))
-            self._rmdir_tag(old, semfolder)
-            self._save_semantic_folder(semfolder)
+            self._convert_tag_to_folder(old, new)
 
         elif new.is_entrypoint:
             # Convert tag to an entry point
@@ -354,10 +343,8 @@ class SemanticFS(Operations):
                 raise FuseOSError(errno.ENOTSUP)
         elif new.is_tagged_object:
             # Convert tag to a standard folder and tag it
-            if same_semantic_space:
-                pass
-            else:
-                pass
+            self._convert_tag_to_folder(old, new)
+
         else:
             # Impossible!
             assert False, "Impossible destination"
@@ -433,6 +420,15 @@ class SemanticFS(Operations):
             assert False, "Impossible destination"
 
     def _rmdir_tag(self, path: PathInfo, semfolder: SemanticFolder):
+        """
+        Implementation of "rmdir" over a tag.
+        If the target path is directly under the entry point, its node is removed from the
+        semantic directory, so the tag will be completely deleted.
+        Else, if the target path is a tag within another tag, only the link will be removed.
+        In each case, the tag will be removed from the tag sets of the files that had it.
+        :param path:
+        :param semfolder:
+        """
         assert len(path.tags) >= 1
 
         if len(path.tags) == 1:
@@ -443,6 +439,44 @@ class SemanticFS(Operations):
                 semfolder.filetags.discard_tag(f, path.tags[-1])
         else:
             semfolder.graph.remove_arc(path.tags[-2], path.tags[-1])
+
+    def _convert_tag_to_folder(self, old: PathInfo, new: PathInfo):
+        """
+        Transforms a tag into a standard or tagged folder.
+        The destination directory should not exist and will be created.
+        Each tagged object within the source tag is copied to the destination directory,
+        and the source tag is removed from their tag set.
+        The link to the tag is then removed from the semantic directory (if it was the
+        tag in the root of the semantic directory, the corresponding node is deleted).
+        If the destination directory is a tagged object, the directory name will be added to
+        the namespace and the tags of the destination path will be assigned to the directory.
+        :param old:
+        :param new:
+        """
+        if not old.is_tag:
+            raise ValueError("Can only convert tags.")
+
+        if not (new.is_tagged_object or new.is_standard_object):
+            raise ValueError("Tag can only be converted to tagged object or standard object.")
+
+        new_dspath = self._datastore_path(new.path)
+        semfolder = self._get_semantic_folder(old.entrypoint)
+        os.mkdir(new_dspath)  # Fails if dir name is already in the namespace
+        files = semfolder.filetags.tagged_files(old.tags)
+        for f in files:
+            semfolder.filetags.discard_tag(f, old.tags[-1])
+            file_dspath = self._datastore_path(os.path.join(old.path, f))
+            if os.path.isfile(file_dspath):
+                shutil.copy2(file_dspath, new_dspath)
+            else:
+                shutil.copytree(file_dspath, os.path.join(new_dspath, f))
+        self._rmdir_tag(old, semfolder)
+        self._save_semantic_folder(semfolder)
+
+        if new.is_tagged_object:
+            semfolder = self._get_semantic_folder(new.entrypoint)
+            semfolder.filetags.add_file(os.path.basename(new.path), new.tags)
+            self._save_semantic_folder(semfolder)
 
     @staticmethod
     def _is_reserved_name(name: str) -> bool:
