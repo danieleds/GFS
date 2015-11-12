@@ -801,10 +801,20 @@ class SemanticFS(Operations):
         return os.symlink(target, self._datastore_path(name))
 
     def rename(self, old, new):
+        logger.debug("rename(%s, %s)", old, new)
         pathinfo_old = PathInfo(old)
         pathinfo_new = PathInfo(new)
 
-        # FIXME Dest is empty? Old = new? new is reserved name?
+        # FIXME Dest is empty?
+        # Fusepy should block these possibilities:
+        assert pathinfo_old != pathinfo_new
+        assert not self._is_reserved_name(os.path.basename(old))
+
+        if self._is_reserved_name(os.path.basename(new)):
+            raise FuseOSError(errno.EINVAL)
+
+        if self._exists(new):
+            raise FuseOSError(errno.EEXIST)
 
         # +---------------+----------+-------------+-------------+-----------------+
         # | Source \ Dest |  Normal  | Entry Point |     Tag     | Tagged File/Dir |

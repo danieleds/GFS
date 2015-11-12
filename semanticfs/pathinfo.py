@@ -122,3 +122,9 @@ class PathInfo:
                     state = 0
 
         return info
+
+    def __eq__(self, other):
+        return isinstance(other, PathInfo) and self.__path == other.__path
+
+    def __ne__(self, other):
+        return not self.__eq__(other)
