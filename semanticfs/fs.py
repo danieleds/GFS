@@ -360,9 +360,26 @@ class SemanticFS(Operations):
         is_file = os.path.isfile(old_dspath)
         same_semantic_space = old.entrypoint == new.entrypoint
 
-        if new.is_standard_object:
+        if new.is_standard_object or (new.is_tagged_object and not same_semantic_space):
             # Remove the object from src and put it outside
-            pass
+            semfolder = self._get_semantic_folder(old.entrypoint)
+            if len(old.tags) == 0:
+                semfolder.filetags.remove_file(old.tagged_object)
+                os.rename(old_dspath, new_dspath)
+            else:
+                semfolder.filetags.discard_tag(old.tagged_object, old.tags[-1])
+                if os.path.isfile(old_dspath):
+                    shutil.copy2(old_dspath, new_dspath)
+                else:
+                    shutil.copytree(old_dspath, new_dspath)
+            self._save_semantic_folder(semfolder)
+
+            if new.is_tagged_object:
+                assert not same_semantic_space
+                semfolder = self._get_semantic_folder(new.entrypoint)
+                semfolder.filetags.add_file(new.tagged_object, new.tags)
+                self._save_semantic_folder(semfolder)
+
         elif new.is_entrypoint:
             if is_file:
                 # Fail: trying to convert a file to an entry point
@@ -381,40 +398,38 @@ class SemanticFS(Operations):
                 else:
                     pass
         elif new.is_tagged_object:
-            if same_semantic_space:
-                # Moving over itself. This case should have already been prevented by FUSE!
-                assert not (old.tagged_object == new.tagged_object and set(old.tags) == set(new.tags))
+            assert same_semantic_space  # (not same_semantic_space) is already in the first if clause
+            # Moving over itself. This case should have already been prevented by FUSE!
+            assert not (old.tagged_object == new.tagged_object and set(old.tags) == set(new.tags))
 
-                if old.tagged_object != new.tagged_object and set(old.tags) == set(new.tags):
+            if old.tagged_object != new.tagged_object and set(old.tags) == set(new.tags):
 
-                    # These cases:
-                    #  * mv /_sem/_t1/x /_sem/_t1/y
-                    #  * mv /_sem/x /_sem/y
+                # These cases:
+                #  * mv /_sem/_t1/x /_sem/_t1/y
+                #  * mv /_sem/x /_sem/y
 
-                    # Rename the file in the root and in filestagsassociations
-                    assert old.tagged_object != "" and new.tagged_object != ""
-                    os.rename(old_dspath, new_dspath)
-                    semfolder = self._get_semantic_folder(new.entrypoint)
-                    semfolder.filetags.rename_file(old.tagged_object, new.tagged_object)
-                    self._save_semantic_folder(semfolder)
+                # Rename the file in the root and in filestagsassociations
+                assert old.tagged_object != "" and new.tagged_object != ""
+                os.rename(old_dspath, new_dspath)
+                semfolder = self._get_semantic_folder(new.entrypoint)
+                semfolder.filetags.rename_file(old.tagged_object, new.tagged_object)
+                self._save_semantic_folder(semfolder)
 
-                elif old.tagged_object != new.tagged_object and set(old.tags) != set(new.tags):
+            elif old.tagged_object != new.tagged_object and set(old.tags) != set(new.tags):
 
-                    # mv /_sem/_t1/x /_sem/_t2/y is not supported
-                    raise FuseOSError(errno.ENOTSUP)
+                # mv /_sem/_t1/x /_sem/_t2/y is not supported
+                raise FuseOSError(errno.ENOTSUP)
 
-                elif old.tagged_object == new.tagged_object and set(old.tags) != set(new.tags):
+            elif old.tagged_object == new.tagged_object and set(old.tags) != set(new.tags):
 
-                    # These cases:
-                    #  * mv /_sem/_t1/x /_sem/_t2/x
-                    #  * mv /_sem/x /_sem/_t3/x
-                    semfolder = self._get_semantic_folder(new.entrypoint)
-                    if len(old.tags) > 0:
-                        semfolder.filetags.discard_tag(old.tagged_object, old.tags[-1])
-                    semfolder.filetags.assign_tags(new.tagged_object, new.tags)
-                    self._save_semantic_folder(semfolder)
-            else:
-                pass
+                # These cases:
+                #  * mv /_sem/_t1/x /_sem/_t2/x
+                #  * mv /_sem/x /_sem/_t3/x
+                semfolder = self._get_semantic_folder(new.entrypoint)
+                if len(old.tags) > 0:
+                    semfolder.filetags.discard_tag(old.tagged_object, old.tags[-1])
+                semfolder.filetags.assign_tags(new.tagged_object, new.tags)
+                self._save_semantic_folder(semfolder)
         else:
             # Impossible!
             assert False, "Impossible destination"
@@ -475,7 +490,7 @@ class SemanticFS(Operations):
 
         if new.is_tagged_object:
             semfolder = self._get_semantic_folder(new.entrypoint)
-            semfolder.filetags.add_file(os.path.basename(new.path), new.tags)
+            semfolder.filetags.add_file(new.tagged_object, new.tags)
             self._save_semantic_folder(semfolder)
 
     @staticmethod

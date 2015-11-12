@@ -5,9 +5,9 @@ class PathInfo:
     SEMANTIC_PREFIX = '_'
 
     def __init__(self, path):
-        self.__path = path
+        self.__path = os.path.normcase(os.path.normpath(path))
 
-        components = os.path.normcase(os.path.normpath(path)).split(os.sep)
+        components = self.__path.split(os.sep)
 
         # Is it something semantic?
         if len(components) >= 1 and PathInfo.is_semantic_name(components[-1]):
