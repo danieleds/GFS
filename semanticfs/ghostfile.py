@@ -204,5 +204,5 @@ class GhostFile:
         assert written_bytes == len(zeros)
 
         # TODO Find a way to avoid doing all this if nobody did a truncate since the last call to this method
-        # FIXME Should be max(filesize, intervals.end())???
+        assert self.__filesize == self.__rewritten_intervals.end()
         os.ftruncate(fh, self.__filesize)
