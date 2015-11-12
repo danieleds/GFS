@@ -66,6 +66,7 @@ class GhostFile:
             # Add this write to the intervaltree so that we don't waste time filling it with zeros.
             # We're going to reset the tree anyway.
             GhostFile._optimized_add_to_intervaltree(self.__rewritten_intervals, offset, offset + len(buf))
+            self.__filesize = max(self.__filesize, offset + len(buf))
 
             # Fill all the holes with zeros and write them
             self._write_tree_to_real_file(fh)
