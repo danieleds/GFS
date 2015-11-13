@@ -18,7 +18,10 @@ class FunctionalTests(unittest.TestCase):
         cwd = os.path.realpath(os.path.join(os.path.dirname(os.path.realpath(__file__)), '..', '..'))
         self._p = subprocess.Popen([sys.executable, '-m', 'semanticfs.fs', self._dspath, self._fspath],
                                    cwd=cwd, stdout=subprocess.DEVNULL, stderr=subprocess.STDOUT)
-        time.sleep(1) # FIXME
+
+        # Wait until file system starts
+        while not os.path.ismount(self._fspath):
+            time.sleep(0.1)
 
     def tearDown(self):
         os.kill(self._p.pid, signal.SIGINT)
