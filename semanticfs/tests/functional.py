@@ -30,17 +30,12 @@ class FunctionalTests(unittest.TestCase):
         os.mkdir(os.path.join(self._fspath, 'standardDir'))
         os.mkdir(os.path.join(self._fspath, '_semanticDir'))
         os.mkdir(os.path.join(self._fspath, '_semanticDir', '_tag1'))
-        os.mkdir(os.path.join(self._fspath, '_semanticDir', '_tag1', 'taggedFolder'))
+        os.mkdir(os.path.join(self._fspath, '_semanticDir', '_tag1', 'taggedDir'))
 
-        try:
-            os.mkdir(os.path.join(self._fspath, 'standardDir'))
-        except FileExistsError:
-            pass
-
-        try:
-            os.mkdir(os.path.join(self._fspath, '_semanticDir'))
-        except FileExistsError:
-            pass
+        self.assertRaises(FileExistsError, os.mkdir, os.path.join(self._fspath, 'standardDir'))
+        self.assertRaises(FileExistsError, os.mkdir, os.path.join(self._fspath, '_semanticDir'))
+        self.assertRaises(FileExistsError, os.mkdir, os.path.join(self._fspath, '_semanticDir', '_tag1'))
+        self.assertRaises(FileExistsError, os.mkdir, os.path.join(self._fspath, '_semanticDir', '_tag1', 'taggedDir'))
 
 
 def main():
