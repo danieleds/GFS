@@ -3,14 +3,11 @@
 import tempfile
 import shutil
 import os
-import logging
 import signal
 import unittest
 import subprocess
 import sys
-
-logging.basicConfig()
-logging.getLogger('SemanticFSLogger').setLevel(logging.FATAL)
+import time
 
 
 class FunctionalTests(unittest.TestCase):
@@ -19,15 +16,18 @@ class FunctionalTests(unittest.TestCase):
         self._dspath = tempfile.mkdtemp()
         self._fspath = tempfile.mkdtemp()
         cwd = os.path.realpath(os.path.join(os.path.dirname(os.path.realpath(__file__)), '..', '..'))
-        self._p = subprocess.Popen([sys.executable, '-m', 'semanticfs.fs', self._dspath, self._fspath], cwd=cwd)
+        self._p = subprocess.Popen([sys.executable, '-m', 'semanticfs.fs', self._dspath, self._fspath],
+                                   cwd=cwd, stdout=subprocess.DEVNULL, stderr=subprocess.STDOUT)
+        time.sleep(1) # FIXME
 
     def tearDown(self):
         os.kill(self._p.pid, signal.SIGINT)
+        self._p.wait()
         shutil.rmtree(self._dspath)
         shutil.rmtree(self._fspath)
 
     def _path(self, *paths):
-        return os.path.join(self._dspath, *paths)
+        return os.path.join(self._fspath, *paths)
 
     def testMkdir(self):
         os.mkdir(self._path('standardDir'))
@@ -39,6 +39,11 @@ class FunctionalTests(unittest.TestCase):
         self.assertRaises(FileExistsError, os.mkdir, self._path('_semanticDir'))
         self.assertRaises(FileExistsError, os.mkdir, self._path('_semanticDir', '_tag1'))
         self.assertRaises(FileExistsError, os.mkdir, self._path('_semanticDir', '_tag1', 'taggedDir'))
+
+        os.mkdir(self._path('_semanticDir', '_tag1', '_tag2'))
+        self.assertTrue(os.path.exists(self._path('_semanticDir', '_tag2')))
+
+        self.assertRaises(FileExistsError, os.mkdir, self._path('_semanticDir', '_tag1', '_tag2', '_tag1'))
 
     def testGhostFile(self):
         os.mkdir(self._path('_sem'))

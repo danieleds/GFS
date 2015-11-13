@@ -581,6 +581,9 @@ class SemanticFS(Operations):
 
         return attribs
 
+    getxattr = None
+    listxattr = None
+
     def readdir(self, path: str, fh):
         """
         Yelds the list of files and directories within the provided one.
