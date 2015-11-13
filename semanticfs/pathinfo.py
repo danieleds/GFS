@@ -22,7 +22,8 @@ class PathInfo:
             # /a/_b/c
             assert not PathInfo.is_semantic_name(components[-1])
             last_nonsemantic_idx = next(
-                (i for i, name in reversed(list(enumerate(components[0:-1]))) if not PathInfo.is_semantic_name(name)), -1)
+                (i for i, name in reversed(list(enumerate(components[0:-1]))) if not PathInfo.is_semantic_name(name)),
+                -1)
             self.__entrypoint = os.sep.join(components[0:last_nonsemantic_idx+2])
             self.__tags = components[last_nonsemantic_idx+2:-1]
             self.__file = components[-1]

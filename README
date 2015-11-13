@@ -3,3 +3,6 @@ pip3 install intervaltree
 
 
 python3 -m semanticfs.fs /tmp/ds /tmp/fs
+
+To launch tests:
+python3 -m semanticfs.tests.functional

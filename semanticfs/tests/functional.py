@@ -1,45 +1,48 @@
 #!/usr/bin/env python
 
-import threading
 import tempfile
-import time
 import shutil
 import os
 import logging
 import signal
-
-from semanticfs import fs
+import unittest
+import subprocess
+import sys
 
 logging.basicConfig()
 logging.getLogger('SemanticFSLogger').setLevel(logging.FATAL)
 
 
-def tests_thread(dspath, fspath):
-    time.sleep(1)
+class FunctionalTests(unittest.TestCase):
 
-    # Create directory
-    os.mkdir(os.path.join(fspath, 'folder'))
-    print(".", end='')
-    os.mkdir(os.path.join(fspath, '_semfolder'))
-    print(".", end='')
+    def setUp(self):
+        self._dspath = tempfile.mkdtemp()
+        self._fspath = tempfile.mkdtemp()
+        cwd = os.path.realpath(os.path.dirname(os.path.realpath(__file__)) + os.sep + ".." + os.sep + "..")
+        self._p = subprocess.Popen([sys.executable, '-m', 'semanticfs.fs', self._dspath, self._fspath], cwd=cwd)
 
-    print("\nDone")
-    os.kill(os.getpid(), signal.SIGINT)
+    def tearDown(self):
+        os.kill(self._p.pid, signal.SIGINT)
+        shutil.rmtree(self._dspath)
+        shutil.rmtree(self._fspath)
+
+    def testMkdir(self):
+        os.mkdir(os.path.join(self._fspath, 'standardDir'))
+        os.mkdir(os.path.join(self._fspath, '_semanticDir'))
+
+        try:
+            os.mkdir(os.path.join(self._fspath, 'standardDir'))
+        except FileExistsError:
+            pass
+
+        try:
+            os.mkdir(os.path.join(self._fspath, '_semanticDir'))
+        except FileExistsError:
+            pass
 
 
-def start():
-    # main(sys.argv[2], sys.argv[1])
-    try:
-        dspath = tempfile.mkdtemp()
-        fspath = tempfile.mkdtemp()
+def main():
+    unittest.main()
 
-        t = threading.Thread(target=tests_thread, args=(dspath, fspath))
-        t.daemon = True
-        t.start()
-
-        fs.start(fspath, dspath)
-
-    finally:
-        shutil.rmtree(dspath)
-        shutil.rmtree(fspath)
-
+if __name__ == '__main__':
+    main()
