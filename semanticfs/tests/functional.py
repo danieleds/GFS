@@ -18,7 +18,7 @@ class FunctionalTests(unittest.TestCase):
     def setUp(self):
         self._dspath = tempfile.mkdtemp()
         self._fspath = tempfile.mkdtemp()
-        cwd = os.path.realpath(os.path.dirname(os.path.realpath(__file__)) + os.sep + ".." + os.sep + "..")
+        cwd = os.path.realpath(os.path.join(os.path.dirname(os.path.realpath(__file__)), '..', '..'))
         self._p = subprocess.Popen([sys.executable, '-m', 'semanticfs.fs', self._dspath, self._fspath], cwd=cwd)
 
     def tearDown(self):
@@ -29,6 +29,8 @@ class FunctionalTests(unittest.TestCase):
     def testMkdir(self):
         os.mkdir(os.path.join(self._fspath, 'standardDir'))
         os.mkdir(os.path.join(self._fspath, '_semanticDir'))
+        os.mkdir(os.path.join(self._fspath, '_semanticDir', '_tag1'))
+        os.mkdir(os.path.join(self._fspath, '_semanticDir', '_tag1', 'taggedFolder'))
 
         try:
             os.mkdir(os.path.join(self._fspath, 'standardDir'))
