@@ -16,8 +16,11 @@ class FunctionalTests(unittest.TestCase):
         self._dspath = tempfile.mkdtemp()
         self._fspath = tempfile.mkdtemp()
         cwd = os.path.realpath(os.path.join(os.path.dirname(os.path.realpath(__file__)), '..', '..'))
+        show_output = False
         self._p = subprocess.Popen([sys.executable, '-m', 'semanticfs.fs', self._dspath, self._fspath],
-                                   cwd=cwd, stdout=None, stderr=subprocess.STDOUT)
+                                   cwd=cwd,
+                                   stdout=None if show_output else subprocess.DEVNULL,
+                                   stderr=subprocess.STDOUT)
 
         # Wait until file system starts
         while not os.path.ismount(self._fspath):
@@ -32,7 +35,7 @@ class FunctionalTests(unittest.TestCase):
     def _path(self, *paths):
         return os.path.join(self._fspath, *paths)
 
-    def testMkdir(self):
+    def test_mkdir(self):
         os.mkdir(self._path('standardDir'))
         os.mkdir(self._path('_semanticDir'))
         os.mkdir(self._path('_semanticDir', '_tag1'))
@@ -48,7 +51,7 @@ class FunctionalTests(unittest.TestCase):
 
         self.assertRaises(FileExistsError, os.mkdir, self._path('_semanticDir', '_tag1', '_tag2', '_tag1'))
 
-    def testGhostFile(self):
+    def test_ghost_file(self):
         os.mkdir(self._path('_sem'))
         os.mkdir(self._path('_sem', '_t1'))
         os.mkdir(self._path('_sem', '_t2'))
@@ -138,13 +141,17 @@ class FunctionalTests(unittest.TestCase):
             with open(self._path('_sem', '_t1', 'x'), 'rb') as f_t1_rx:
                 self.assertEqual(f_t1_rx.read(), goldcontent[0:10])
 
-        #time.sleep(1)
+        # Clear stat cache
+        os.chmod(self._path('_sem', 'x'), os.lstat(self._path('_sem', 'x')).st_mode)
+
+        self.assertEqual(os.path.getsize(self._path('_sem', 'x')), 10)
+        self.assertEqual(os.path.getsize(self._path('_sem', '_t1', 'x')), 10)
+
+        with open(self._path('_sem', 'x'), 'rb') as f:
+            self.assertEqual(f.read(), goldcontent[0:10])
 
         with open(self._path('_sem', '_t1', 'x'), 'rb') as f:
             self.assertEqual(f.read(), goldcontent[0:10])
-
-        #with open(self._path('_sem', 'x'), 'rb') as f:
-        #    self.assertEqual(f.read(), goldcontent[0:10])
 
 
 def main():

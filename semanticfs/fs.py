@@ -142,6 +142,8 @@ class SemanticFS(Operations):
             del self._sem_writing_files[dspath, normpath]
             del self._sem_writing_files_count[dspath, normpath]
 
+            # FIXME Clear stat cache
+
     def _get_semantic_folder(self, path: str) -> SemanticFolder:
         """
         Returns a SemanticFolder object for the specified path.
