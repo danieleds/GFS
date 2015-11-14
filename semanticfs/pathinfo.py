@@ -5,6 +5,9 @@ class PathInfo:
     SEMANTIC_PREFIX = '_'
 
     def __init__(self, path):
+        if not os.path.isabs(path):
+            raise ValueError("Path must be absolute")
+
         self.__path = os.path.normcase(os.path.normpath(path))
 
         components = self.__path.split(os.sep)
@@ -94,35 +97,6 @@ class PathInfo:
         :return:
         """
         return name.startswith(PathInfo.SEMANTIC_PREFIX)
-
-    @classmethod
-    def get_semantic_subpaths_info(cls, path) -> list:
-        """
-
-        :param path: a virtual path
-        :return: [ {entrypoint: "/a/_b" (a virtual path), tags: ["_c", "_d", "_e"], file: "x" }, ... ]
-        """
-        info = []
-        components = os.path.normcase(os.path.normpath(path)).split(os.sep)
-        state = 0
-
-        for i, name in enumerate(components):
-
-            if state == 0:
-                # Searching an entry point
-                if PathInfo.is_semantic_name(name):
-                    info.append({'entrypoint': os.sep.join(components[0:i + 1]), 'tags': [], 'file': ''})
-                    state = 1
-
-            elif state == 1:
-                # Collecting all the tags and the final file/folder (if there is one)
-                if PathInfo.is_semantic_name(name):
-                    info[-1]['tags'].append(name)
-                else:
-                    info[-1]['file'] = name
-                    state = 0
-
-        return info
 
     def __eq__(self, other):
         return isinstance(other, PathInfo) and self.__path == other.__path
