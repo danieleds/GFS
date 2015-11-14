@@ -20,10 +20,11 @@ class PathInfoTests(unittest.TestCase):
 
     def test_path_type_recognition(self):
         for k in self._testpaths.keys():
-            self.assertEqual(PathInfo(k).is_standard_object, self._testpaths[k][0], k)
-            self.assertEqual(PathInfo(k).is_tagged_object, self._testpaths[k][1], k)
-            self.assertEqual(PathInfo(k).is_tag, self._testpaths[k][2], k)
-            self.assertEqual(PathInfo(k).is_entrypoint, self._testpaths[k][3], k)
+            with self.subTest(k=k):
+                self.assertEqual(PathInfo(k).is_standard_object, self._testpaths[k][0], k)
+                self.assertEqual(PathInfo(k).is_tagged_object, self._testpaths[k][1], k)
+                self.assertEqual(PathInfo(k).is_tag, self._testpaths[k][2], k)
+                self.assertEqual(PathInfo(k).is_entrypoint, self._testpaths[k][3], k)
 
     def test_relative_paths(self):
         self.assertRaises(ValueError, PathInfo, "a/b/c")
