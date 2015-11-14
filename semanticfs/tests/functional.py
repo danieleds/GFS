@@ -17,7 +17,7 @@ class FunctionalTests(unittest.TestCase):
         self._fspath = tempfile.mkdtemp()
         cwd = os.path.realpath(os.path.join(os.path.dirname(os.path.realpath(__file__)), '..', '..'))
         self._p = subprocess.Popen([sys.executable, '-m', 'semanticfs.fs', self._dspath, self._fspath],
-                                   cwd=cwd, stdout=subprocess.DEVNULL, stderr=subprocess.STDOUT)
+                                   cwd=cwd, stdout=None, stderr=subprocess.STDOUT)
 
         # Wait until file system starts
         while not os.path.ismount(self._fspath):
@@ -75,6 +75,76 @@ class FunctionalTests(unittest.TestCase):
 
         with open(self._path('_sem', '_t2', 'x'), 'rb') as f:
             self.assertEqual(f.read(), goldcontent)
+
+    def test_ghost_file_truncate(self):
+        os.mkdir(self._path('_sem'))
+        os.mkdir(self._path('_sem', '_t1'))
+
+        goldcontent = b"abcdefghijklmnopqrstuvwxyz"
+
+        with open(self._path('_sem', 'x'), 'wb') as f:
+            f.write(goldcontent)
+
+        with open(self._path('_sem', '_t1', 'x'), 'wb') as f_t1_x:
+
+            with open(self._path('_sem', 'x'), 'rb') as f_x:
+                self.assertEqual(f_x.read(), goldcontent)
+
+            with open(self._path('_sem', '_t1', 'x'), 'rb') as f_t1_rx:
+                self.assertEqual(len(f_t1_rx.read()), 0)
+
+    def test_ghost_file_different_write(self):
+        os.mkdir(self._path('_sem'))
+        os.mkdir(self._path('_sem', '_t1'))
+
+        goldcontent = b"abcdefghijklmnopqrstuvwxyz"
+
+        with open(self._path('_sem', 'x'), 'wb') as f:
+            f.write(goldcontent)
+
+        with open(self._path('_sem', '_t1', 'x'), 'wb') as f_t1_x:
+            f_t1_x.write(b"!!!" + goldcontent)
+            f_t1_x.flush()
+
+            with open(self._path('_sem', 'x'), 'rb') as f_x:
+                self.assertEqual(f_x.read(), b"!!!" + goldcontent)
+
+            with open(self._path('_sem', '_t1', 'x'), 'rb') as f_t1_rx:
+                self.assertEqual(f_t1_rx.read(), b"!!!" + goldcontent)
+
+        with open(self._path('_sem', 'x'), 'rb') as f:
+            self.assertEqual(f.read(), b"!!!" + goldcontent)
+
+        with open(self._path('_sem', '_t1', 'x'), 'rb') as f:
+            self.assertEqual(f.read(), b"!!!" + goldcontent)
+
+    def test_ghost_file_truncate(self):
+        os.mkdir(self._path('_sem'))
+        os.mkdir(self._path('_sem', '_t1'))
+
+        goldcontent = b"abcdefghijklmnopqrstuvwxyz"
+
+        with open(self._path('_sem', 'x'), 'wb') as f:
+            f.write(goldcontent)
+
+        with open(self._path('_sem', '_t1', 'x'), 'wb') as f_t1_x:
+            f_t1_x.write(goldcontent)
+            f_t1_x.flush()
+            f_t1_x.truncate(10)
+
+            with open(self._path('_sem', 'x'), 'rb') as f_x:
+                self.assertEqual(f_x.read(), goldcontent)
+
+            with open(self._path('_sem', '_t1', 'x'), 'rb') as f_t1_rx:
+                self.assertEqual(f_t1_rx.read(), goldcontent[0:10])
+
+        #time.sleep(1)
+
+        with open(self._path('_sem', '_t1', 'x'), 'rb') as f:
+            self.assertEqual(f.read(), goldcontent[0:10])
+
+        #with open(self._path('_sem', 'x'), 'rb') as f:
+        #    self.assertEqual(f.read(), goldcontent[0:10])
 
 
 def main():
