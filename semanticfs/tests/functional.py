@@ -51,7 +51,7 @@ class FunctionalTests(unittest.TestCase):
 
         self.assertRaises(FileExistsError, os.mkdir, self._path('_semanticDir', '_tag1', '_tag2', '_tag1'))
 
-    def test_ghost_file(self):
+    def test_ghost_file_copy(self):
         os.mkdir(self._path('_sem'))
         os.mkdir(self._path('_sem', '_t1'))
         os.mkdir(self._path('_sem', '_t2'))
@@ -88,7 +88,7 @@ class FunctionalTests(unittest.TestCase):
         with open(self._path('_sem', 'x'), 'wb') as f:
             f.write(goldcontent)
 
-        with open(self._path('_sem', '_t1', 'x'), 'wb') as f_t1_x:
+        with open(self._path('_sem', '_t1', 'x'), 'wb'):
 
             with open(self._path('_sem', 'x'), 'rb') as f_x:
                 self.assertEqual(f_x.read(), goldcontent)
@@ -121,7 +121,7 @@ class FunctionalTests(unittest.TestCase):
         with open(self._path('_sem', '_t1', 'x'), 'rb') as f:
             self.assertEqual(f.read(), b"!!!" + goldcontent)
 
-    def test_ghost_file_truncate(self):
+    def test_ghost_file_truncate2(self):
         os.mkdir(self._path('_sem'))
         os.mkdir(self._path('_sem', '_t1'))
 
