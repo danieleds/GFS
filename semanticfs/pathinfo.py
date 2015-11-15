@@ -92,7 +92,7 @@ class PathInfo:
     @staticmethod
     def is_semantic_name(name) -> bool:
         """
-        Returns True if the name is a semantic name (stars with the semantic prefix)
+        Returns True if the name is a semantic name (starts with the semantic prefix)
         :param name: file name to check (not a path)
         :return:
         """

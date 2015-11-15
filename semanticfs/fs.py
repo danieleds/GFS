@@ -226,7 +226,8 @@ class SemanticFS(Operations):
          * Destination is an entry point:
            The source object must be a directory.
            [TO BE COMPLETED]
-         * [TO BE COMPLETED]
+         * Destination is a tag: not supported
+         * Destination is a tagged object: [TO BE COMPLETED]
         :param old:
         :param new:
         """
@@ -258,17 +259,13 @@ class SemanticFS(Operations):
                 raise FuseOSError(errno.ENOTSUP)
         elif new.is_tagged_object:
             # Move this obj to the destination entry point, then add the tags.
-            if is_file:
-                semfolder = self._get_semantic_folder(new.entrypoint)
-                os.rename(old_dspath, new_dspath)
-                try:
-                    semfolder.filetags.add_file(new.tagged_object, new.tags)
-                except ValueError:
-                    semfolder.filetags.assign_tags(new.tagged_object, new.tags)
-                self._save_semantic_folder(semfolder)
-            else:
-                # TODO Not specified
-                raise FuseOSError(errno.ENOTSUP)
+            semfolder = self._get_semantic_folder(new.entrypoint)
+            os.rename(old_dspath, new_dspath)  # Fails if new is an existing non-empty directory
+            try:
+                semfolder.filetags.add_file(new.tagged_object, new.tags)
+            except ValueError:
+                semfolder.filetags.assign_tags(new.tagged_object, new.tags)
+            self._save_semantic_folder(semfolder)
         else:
             # Impossible!
             assert False, "Impossible destination"
@@ -835,8 +832,10 @@ class SemanticFS(Operations):
         if self._is_reserved_name(os.path.basename(new)):
             raise FuseOSError(errno.EINVAL)
 
-        if self._exists(new):
-            raise FuseOSError(errno.EEXIST)
+        # FIXME What if dir is moved within itself?
+
+        # if self._exists(new):
+        #    raise FuseOSError(errno.EEXIST)
 
         # +---------------+----------+-------------+-------------+-----------------+
         # | Source \ Dest |  Normal  | Entry Point |     Tag     | Tagged File/Dir |

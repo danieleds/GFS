@@ -38,6 +38,10 @@ class FunctionalTests(unittest.TestCase):
     def _clear_stat_cache(self, path):
         os.chmod(path, os.lstat(path).st_mode)
 
+    def _writefile(self, path, content):
+        with open(path, 'wb') as f:
+            f.write(content)
+
     def test_mkdir(self):
         os.mkdir(self._path('standardDir'))
         os.mkdir(self._path('_semanticDir'))
@@ -214,6 +218,31 @@ class FunctionalTests(unittest.TestCase):
             self.assertEqual(f_r.read(), b"\x00"*5 + b"5555")
         with open(self._path('_sem', '_t1', 'x'), 'rb') as f_r:
             self.assertEqual(f_r.read(), b"\x00"*5 + b"5555")
+
+    def test_rename_standard_object_to_tagged_object(self):
+        os.mkdir(self._path('_sem'))
+        os.mkdir(self._path('_sem', '_t1'))
+
+        goldcontent = b"abcdefghijklmnopqrstuvwxyz"
+
+        self._writefile(self._path('x'), goldcontent)
+        os.rename(self._path('x'), self._path('_sem', 'x'))
+        self._writefile(self._path('x'), goldcontent)
+        os.rename(self._path('x'), self._path('_sem', 'x'))
+        self._writefile(self._path('x'), goldcontent)
+        os.rename(self._path('x'), self._path('_sem', '_t1', 'x'))
+
+        os.mkdir(self._path('dir'))
+        os.rename(self._path('dir'), self._path('_sem', 'dir'))
+        os.mkdir(self._path('dir'))
+        os.rename(self._path('dir'), self._path('_sem', '_t1', 'dir'))
+        os.mkdir(self._path('dir'))
+        os.rename(self._path('dir'), self._path('_sem', '_t1', 'dir'))
+
+        self._writefile(self._path('_sem', 'dir', 'f'), goldcontent)
+        os.mkdir(self._path('dir'))
+        self.assertRaises(OSError, os.rename, self._path('dir'), self._path('_sem', '_t1', 'dir'))
+
 
 
 def main():
