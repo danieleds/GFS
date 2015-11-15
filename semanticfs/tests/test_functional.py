@@ -79,6 +79,11 @@ class FunctionalTests(unittest.TestCase):
         with open(self._path('_sem', '_t2', 'x'), 'rb') as f:
             self.assertEqual(f.read(), goldcontent)
 
+        shutil.copy2(self._path('_sem', '_t1', 'x'), self._path('_sem', 'x'))
+
+        with open(self._path('_sem', 'x'), 'rb') as f:
+            self.assertEqual(f.read(), goldcontent)
+
     def test_ghost_file_truncate(self):
         os.mkdir(self._path('_sem'))
         os.mkdir(self._path('_sem', '_t1'))
@@ -152,6 +157,60 @@ class FunctionalTests(unittest.TestCase):
 
         with open(self._path('_sem', '_t1', 'x'), 'rb') as f:
             self.assertEqual(f.read(), goldcontent[0:10])
+
+    def test_ghost_file_seek_writes(self):
+        os.mkdir(self._path('_sem'))
+        os.mkdir(self._path('_sem', '_t1'))
+
+        goldcontent = b"abcdefghijklmnopqrstuvwxyz"
+
+        with open(self._path('_sem', 'x'), 'wb') as f:
+            f.write(goldcontent)
+
+        with open(self._path('_sem', '_t1', 'x'), 'wb') as f_w:
+
+            with open(self._path('_sem', 'x'), 'rb') as f_r:
+                self.assertEqual(f_r.read(), goldcontent)
+
+            f_w.seek(5)
+            f_w.write(b"fghi")
+            f_w.flush()
+
+            with open(self._path('_sem', 'x'), 'rb') as f_r:
+                self.assertEqual(f_r.read(), goldcontent)
+            with open(self._path('_sem', '_t1', 'x'), 'rb') as f_r:
+                self.assertEqual(f_r.read(), b"\x00"*5 + b"fghi")
+
+    def test_ghost_file_seek_writes2(self):
+        os.mkdir(self._path('_sem'))
+        os.mkdir(self._path('_sem', '_t1'))
+
+        goldcontent = b"abcdefghijklmnopqrstuvwxyz"
+
+        with open(self._path('_sem', 'x'), 'wb') as f:
+            f.write(goldcontent)
+
+        with open(self._path('_sem', '_t1', 'x'), 'wb') as f_w:
+
+            with open(self._path('_sem', 'x'), 'rb') as f_r:
+                self.assertEqual(f_r.read(), goldcontent)
+
+            f_w.seek(5)
+            f_w.write(b"5555")
+            f_w.flush()
+
+            # Clear stat cache
+            os.chmod(self._path('_sem', 'x'), os.lstat(self._path('_sem', 'x')).st_mode)
+
+            with open(self._path('_sem', 'x'), 'rb') as f_r:
+                self.assertEqual(f_r.read(), b"\x00"*5 + b"5555")
+            with open(self._path('_sem', '_t1', 'x'), 'rb') as f_r:
+                self.assertEqual(f_r.read(), b"\x00"*5 + b"5555")
+
+        with open(self._path('_sem', 'x'), 'rb') as f_r:
+            self.assertEqual(f_r.read(), b"\x00"*5 + b"5555")
+        with open(self._path('_sem', '_t1', 'x'), 'rb') as f_r:
+            self.assertEqual(f_r.read(), b"\x00"*5 + b"5555")
 
 
 def main():
