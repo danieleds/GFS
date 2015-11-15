@@ -35,6 +35,9 @@ class FunctionalTests(unittest.TestCase):
     def _path(self, *paths):
         return os.path.join(self._fspath, *paths)
 
+    def _clear_stat_cache(self, path):
+        os.chmod(path, os.lstat(path).st_mode)
+
     def test_mkdir(self):
         os.mkdir(self._path('standardDir'))
         os.mkdir(self._path('_semanticDir'))
@@ -147,7 +150,7 @@ class FunctionalTests(unittest.TestCase):
                 self.assertEqual(f_t1_rx.read(), goldcontent[0:10])
 
         # Clear stat cache
-        os.chmod(self._path('_sem', 'x'), os.lstat(self._path('_sem', 'x')).st_mode)
+        self._clear_stat_cache(self._path('_sem', 'x'))
 
         self.assertEqual(os.path.getsize(self._path('_sem', 'x')), 10)
         self.assertEqual(os.path.getsize(self._path('_sem', '_t1', 'x')), 10)
@@ -200,7 +203,7 @@ class FunctionalTests(unittest.TestCase):
             f_w.flush()
 
             # Clear stat cache
-            os.chmod(self._path('_sem', 'x'), os.lstat(self._path('_sem', 'x')).st_mode)
+            self._clear_stat_cache(self._path('_sem', 'x'))
 
             with open(self._path('_sem', 'x'), 'rb') as f_r:
                 self.assertEqual(f_r.read(), b"\x00"*5 + b"5555")
