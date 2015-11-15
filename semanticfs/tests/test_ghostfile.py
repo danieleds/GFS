@@ -64,7 +64,7 @@ class PathInfoTests(unittest.TestCase):
             self.assertEqual(ghost.read(100, 0, f.fileno()), b"0123456789")
 
         with open(self._datapath, 'r+b') as f:
-            ghost.write(b"3456", 3, f.fileno())
+            ghost.write(b"345", 3, f.fileno())
             self.assertEqual(ghost.read(100, 0, f.fileno()), b"0123456789")
 
         with open(self._datapath, 'r+b') as f:
@@ -74,6 +74,45 @@ class PathInfoTests(unittest.TestCase):
         # Make sure the file was not modified
         with open(self._datapath, 'rb') as f:
             self.assertEqual(f.read(), b"0123456789")
+
+    def test_truncate_write_same(self):
+        self._fillfile(b"0123456789")
+        ghost = GhostFile(self._datapath, None)
+
+        with open(self._datapath, 'r+b') as f:
+            ghost.truncate(0)
+            self.assertEqual(ghost.size, 0)
+            ghost.write(b"01234", 0, f.fileno())
+            self.assertEqual(ghost.size, 5)
+            self.assertEqual(ghost.read(100, 0, f.fileno()), b"01234")
+
+        # Make sure the file was not modified
+        with open(self._datapath, 'rb') as f:
+            self.assertEqual(f.read(), b"0123456789")
+
+        with open(self._datapath, 'r+b') as f:
+            ghost.write(b"789", 7, f.fileno())
+            self.assertEqual(ghost.read(100, 0, f.fileno()), b"01234\x00\x00789")
+
+        # Make sure the file was not modified
+        with open(self._datapath, 'rb') as f:
+            self.assertEqual(f.read(), b"0123456789")
+
+        with open(self._datapath, 'r+b') as f:
+            ghost.write(b"345", 3, f.fileno())
+            self.assertEqual(ghost.read(100, 0, f.fileno()), b"012345\x00789")
+
+        # Make sure the file was not modified
+        with open(self._datapath, 'rb') as f:
+            self.assertEqual(f.read(), b"0123456789")
+
+        with open(self._datapath, 'r+b') as f:
+            ghost.apply(f.fileno())
+        ghost.release()
+
+        # Make sure the file *was* modified
+        with open(self._datapath, 'rb') as f:
+            self.assertEqual(f.read(), b"012345\x00789")
 
 
 def main():
