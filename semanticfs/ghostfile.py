@@ -5,8 +5,9 @@ from intervaltree import Interval, IntervalTree
 
 class GhostFile:
 
-    def __init__(self, datapath):
+    def __init__(self, datapath, clear_cache_callback):
         self.__data_path = datapath
+        self._clear_cache_callback = clear_cache_callback
 
         try:
             self.__filesize = os.path.getsize(datapath)
@@ -207,4 +208,7 @@ class GhostFile:
         # TODO Find a way to avoid doing all this if nobody did a truncate since the last call to this method
         assert self.__filesize == self.__rewritten_intervals.end()
         os.ftruncate(fh, self.__filesize)
-        # FIXME Clear stat cache
+
+        # Invoke a callback that should clear the stat cache of all the aliases of this file
+        if self._clear_cache_callback:
+            self._clear_cache_callback()

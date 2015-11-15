@@ -25,10 +25,11 @@ class SemanticFS(Operations):
     SEMANTIC_FS_GRAPH_FILE_NAME = PathInfo.SEMANTIC_PREFIX + '$$_SEMANTIC_FS_GRAPH_FILE_$$'
     SEMANTIC_FS_ASSOC_FILE_NAME = PathInfo.SEMANTIC_PREFIX + '$$_SEMANTIC_FS_ASSOC_FILE_$$'
 
-    def __init__(self, datastore_root):
+    def __init__(self, datastore_root, mountpoint):
         super().__init__()
 
         self._dsroot = datastore_root
+        self._mountpoint = mountpoint
 
         self._sem_writing_files = {}  # Ghostfiles for semantic files opened for write
         self._sem_writing_files_count = {}  # Count of the references for each ghostfile in self._sem_writing_files
@@ -79,6 +80,45 @@ class SemanticFS(Operations):
 
         return path
 
+    def _mounted_path(self, virtualpath: str) -> str:
+        """
+        Returns the full path of this virtual path, considering the mount point of the file system.
+        For example, if the file system is mounted at /mnt/fs:
+         * /a/_b/_c/x -> /mnt/fs/a/_b/_c/x
+         * /a/_b/_c/ -> /mnt/fs/a/_b/_c/
+         * /a/_b/_c/_d/ -> /mnt/fs/a/_b/_c/_d/
+        Always try to avoid doing file system operations on paths returned by this method.
+        :param virtualpath: an absolute virtual path
+        :return:
+        """
+
+        if not os.path.isabs(virtualpath):
+            raise ValueError("virtualpath should be absolute")
+
+        # Remove the root from the path
+        tmppath = os.path.splitdrive(virtualpath)[1]
+        if tmppath.startswith(os.sep):
+            tmppath = tmppath[len(os.sep):]
+
+        # Join the path with the mount path
+        path = os.path.join(self._mountpoint, tmppath)
+
+        return path
+
+    def _clear_stat_cache(self, path: PathInfo):
+        """
+        Clear the stat cache of all the aliases of this path
+        :param path:
+        """
+        if path.is_tagged_object:
+            # FIXME Needs implementation
+            
+            # For now, only clear the stat cache of the file in the root
+            target = os.path.join(path.entrypoint, path.tagged_object)
+            mounted_target = self._mounted_path(target)
+            print("Clearing stat cache: " + mounted_target)
+            os.chmod(mounted_target, os.lstat(mounted_target).st_mode)
+
     def _add_ghost_file(self, ghost_path: str) -> GhostFile:
         """
         Adds a ghost file for the specified virtual path.
@@ -95,7 +135,8 @@ class SemanticFS(Operations):
             self._sem_writing_files_count[dspath, normpath] += 1
         else:
             assert (dspath, normpath) not in self._sem_writing_files_count
-            self._sem_writing_files[dspath, normpath] = GhostFile(dspath)
+            self._sem_writing_files[dspath, normpath] = GhostFile(dspath,
+                                                                  lambda: self._clear_stat_cache(PathInfo(ghost_path)))
             self._sem_writing_files_count[dspath, normpath] = 1
 
         assert (dspath, normpath) in self._sem_writing_files and self._sem_writing_files_count[dspath, normpath] > 0
@@ -944,7 +985,7 @@ class SemanticFS(Operations):
 
 
 def start(mountpoint, root):
-    FUSE(SemanticFS(root), mountpoint, nothreads=True, foreground=True)
+    FUSE(SemanticFS(root, mountpoint), mountpoint, nothreads=True, foreground=True)
 
 
 if __name__ == '__main__':

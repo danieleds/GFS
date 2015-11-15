@@ -16,7 +16,7 @@ class FunctionalTests(unittest.TestCase):
         self._dspath = tempfile.mkdtemp()
         self._fspath = tempfile.mkdtemp()
         cwd = os.path.realpath(os.path.join(os.path.dirname(os.path.realpath(__file__)), '..', '..'))
-        show_output = False
+        show_output = True
         self._p = subprocess.Popen([sys.executable, '-m', 'semanticfs.fs', self._dspath, self._fspath],
                                    cwd=cwd,
                                    stdout=None if show_output else subprocess.DEVNULL,
