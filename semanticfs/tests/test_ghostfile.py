@@ -135,6 +135,27 @@ class PathInfoTests(unittest.TestCase):
         with open(self._datapath, 'rb') as f:
             self.assertEqual(f.read(), b"")
 
+    def test_truncate_after_eof(self):
+        self._fillfile(b"0123456789")
+        ghost = GhostFile(self._datapath, None)
+
+        with open(self._datapath, 'r+b') as f:
+            ghost.truncate(20)
+            self.assertEqual(ghost.size, 20)
+            self.assertEqual(ghost.read(100, 0, f.fileno()), b"0123456789" + b"\x00"*10)
+
+        # Make sure the file was not modified
+        with open(self._datapath, 'rb') as f:
+            self.assertEqual(f.read(), b"0123456789")
+
+        with open(self._datapath, 'r+b') as f:
+            ghost.apply(f.fileno())
+        ghost.release()
+
+        # Make sure the file *was* modified
+        with open(self._datapath, 'rb') as f:
+            self.assertEqual(f.read(), b"0123456789" + b"\x00"*10)
+
 
 def main():
     unittest.main()
