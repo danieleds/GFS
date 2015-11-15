@@ -220,6 +220,13 @@ class SemanticFS(Operations):
     def _move_standard_obj(self, old: PathInfo, new: PathInfo):
         """
         Helper method for renaming a standard file or folder.
+        We can have the following cases:
+         * Destination is a standard object:
+           The source file is renamed just like the standard file system behavior
+         * Destination is an entry point:
+           The source object must be a directory.
+           [TO BE COMPLETED]
+         * [TO BE COMPLETED]
         :param old:
         :param new:
         """
@@ -235,6 +242,7 @@ class SemanticFS(Operations):
                 raise FuseOSError(errno.ENOTSUP)
             else:
                 # Convert src dir to an entry point
+                # FIXME What if source dir contained an entry point?
                 os.rename(old_dspath, new_dspath)
                 semfolder = SemanticFolder(new.path)
                 for f in os.listdir(new_dspath):
@@ -381,6 +389,7 @@ class SemanticFS(Operations):
                 raise FuseOSError(errno.ENOTSUP)
             else:
                 # Convert src dir to an entry point
+                # FIXME What if source dir contained an entry point?
                 self._extract_tagged_object(old, new)
                 semfolder = SemanticFolder(new.path)
                 for f in os.listdir(new_dspath):
