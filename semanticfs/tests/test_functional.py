@@ -84,7 +84,7 @@ class FunctionalTests(unittest.TestCase):
         with open(self._path('_sem', 'x'), 'rb') as f:
             self.assertEqual(f.read(), goldcontent)
 
-    def test_ghost_file_truncate(self):
+    def test_ghost_file_truncate_writesamedata(self):
         os.mkdir(self._path('_sem'))
         os.mkdir(self._path('_sem', '_t1'))
 
@@ -126,7 +126,7 @@ class FunctionalTests(unittest.TestCase):
         with open(self._path('_sem', '_t1', 'x'), 'rb') as f:
             self.assertEqual(f.read(), b"!!!" + goldcontent)
 
-    def test_ghost_file_truncate2(self):
+    def test_ghost_file_truncate(self):
         os.mkdir(self._path('_sem'))
         os.mkdir(self._path('_sem', '_t1'))
 
@@ -181,7 +181,7 @@ class FunctionalTests(unittest.TestCase):
             with open(self._path('_sem', '_t1', 'x'), 'rb') as f_r:
                 self.assertEqual(f_r.read(), b"\x00"*5 + b"fghi")
 
-    def test_ghost_file_seek_writes2(self):
+    def test_ghost_file_truncate_seek_writedifferent(self):
         os.mkdir(self._path('_sem'))
         os.mkdir(self._path('_sem', '_t1'))
 
