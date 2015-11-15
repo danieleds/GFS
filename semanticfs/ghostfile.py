@@ -47,11 +47,6 @@ class GhostFile:
         assert self.__filesize >= self.__rewritten_intervals.end()
 
     def write(self, buf, offset, fh):
-        # FIXME Controllare bene se la copy-on-change funziona...
-        # cp /x _sem/_t1/x  ->  x è anche in _sem/x? [ok]
-        # cp _sem/x _sem/_t1/x (con x non già esistente)  ->  nessuna scrittura viene eseguita? [ok]
-        # cp _sem/x _sem/_t1/x (con x già esistente e stesso file)  ->  nessuna scrittura viene eseguita? ERRORE: File corrotto
-        # cp _sem/y _sem/_t1/x  ->  viene eseguita la scrittura correttamente?
         if offset + len(buf) <= os.path.getsize(self.__data_path) and self._is_same_data(buf, offset):
             # Ok, we don't write anything. We just remember about it.
             GhostFile._optimized_add_to_intervaltree(self.__rewritten_intervals, offset, offset + len(buf))
