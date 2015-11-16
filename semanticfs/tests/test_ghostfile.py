@@ -156,6 +156,57 @@ class PathInfoTests(unittest.TestCase):
         with open(self._datapath, 'rb') as f:
             self.assertEqual(f.read(), b"0123456789" + b"\x00"*10)
 
+    def test_write_diff(self):
+        self._fillfile(b"0123456789")
+        ghost = GhostFile(self._datapath, None)
+
+        with open(self._datapath, 'r+b') as f:
+            ghost.write(b"abcd", 0, f.fileno())
+            self.assertEqual(ghost.read(100, 0, f.fileno()), b"abcd456789")
+
+        # Make sure the file *was* modified
+        with open(self._datapath, 'rb') as f:
+            self.assertEqual(f.read(), b"abcd456789")
+
+        with open(self._datapath, 'r+b') as f:
+            ghost.write(b"hij", 7, f.fileno())
+            self.assertEqual(ghost.read(100, 0, f.fileno()), b"abcd456hij")
+
+        with open(self._datapath, 'r+b') as f:
+            ghost.write(b"XXX", 3, f.fileno())
+            self.assertEqual(ghost.read(100, 0, f.fileno()), b"abcXXX6hij")
+
+        with open(self._datapath, 'r+b') as f:
+            ghost.apply(f.fileno())
+        ghost.release()
+
+        # Make sure the file *was* modified
+        with open(self._datapath, 'rb') as f:
+            self.assertEqual(f.read(), b"abcXXX6hij")
+
+    def test_truncate_write_diff(self):
+        self._fillfile(b"0123456789")
+        ghost = GhostFile(self._datapath, None)
+
+        with open(self._datapath, 'r+b') as f:
+            ghost.truncate(0)
+            self.assertEqual(ghost.size, 0)
+            ghost.write(b"abcd", 0, f.fileno())
+            self.assertEqual(ghost.size, 4)
+            self.assertEqual(ghost.read(100, 0, f.fileno()), b"abcd")
+
+        # Make sure the file *was* modified
+        with open(self._datapath, 'rb') as f:
+            self.assertEqual(f.read(), b"abcd")
+
+        with open(self._datapath, 'r+b') as f:
+            ghost.apply(f.fileno())
+        ghost.release()
+
+        # Make sure the file *was* modified
+        with open(self._datapath, 'rb') as f:
+            self.assertEqual(f.read(), b"abcd")
+
 
 def main():
     unittest.main()
