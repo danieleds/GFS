@@ -47,6 +47,13 @@ class GhostFile:
         assert self.__filesize >= self.__rewritten_intervals.end()
 
     def write(self, buf, offset, fh):
+        """
+        Write data to this GhostFile.
+        :param buf:
+        :param offset:
+        :param fh:
+        :return: The number of bytes written.
+        """
         if offset + len(buf) <= os.path.getsize(self.__data_path) and self._is_same_data(buf, offset):
             # Ok, we don't write anything. We just remember about it.
             GhostFile._optimized_add_to_intervaltree(self.__rewritten_intervals, offset, offset + len(buf))
@@ -78,13 +85,17 @@ class GhostFile:
             self.__filesize = os.path.getsize(self.__data_path)
             self.__rewritten_intervals = IntervalTree([Interval(0, self.__filesize)] if self.__filesize > 0 else None)
 
-            # TODO Remove
-            print("Writing " + str(len(buf)) + " bytes")
-
             assert self.__filesize == self.__rewritten_intervals.end() == os.path.getsize(self.__data_path)
             return len(buf)
 
     def read(self, length, offset, fh):
+        """
+        Read data from this GhostFile.
+        :param length:
+        :param offset:
+        :param fh:
+        :return:
+        """
         if offset >= self.__filesize or length == 0:
             return b''
 
@@ -112,7 +123,7 @@ class GhostFile:
             data += b'\x00' * (interv.begin - end_prev_interval)
 
             os.lseek(fh, interv.begin, os.SEEK_SET)
-            data += os.read(fh, interv.length())  # FIXME E in caso di EOF?
+            data += os.read(fh, interv.length())
 
             end_prev_interval = interv.end
 
