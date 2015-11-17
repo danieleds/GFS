@@ -58,6 +58,20 @@ class FunctionalTests(unittest.TestCase):
 
         self.assertRaises(FileExistsError, os.mkdir, self._path('_semanticDir', '_tag1', '_tag2', '_tag1'))
 
+    def test_readdir(self):
+        os.mkdir(self._path('_semanticDir'))
+        os.mkdir(self._path('_semanticDir', '_tag1'))
+        os.mkdir(self._path('_semanticDir', '_tag1', '_tag2'))
+        os.mkdir(self._path('_semanticDir', '_tag2', '_tag1'))
+
+        with open(self._path('_semanticDir', '_tag1', '_tag2', 'x'), 'wb') as f:
+            f.write(b"")
+
+        self.assertEqual(set(os.listdir(self._path('_semanticDir', '_tag1'))), {'_tag2', 'x'})
+        self.assertEqual(set(os.listdir(self._path('_semanticDir', '_tag2'))), {'_tag1', 'x'})
+        self.assertEqual(set(os.listdir(self._path('_semanticDir', '_tag1', '_tag2'))), {'x'})
+        self.assertEqual(set(os.listdir(self._path('_semanticDir', '_tag2', '_tag1'))), {'x'})
+
     def test_ghost_file_copy(self):
         os.mkdir(self._path('_sem'))
         os.mkdir(self._path('_sem', '_t1'))
@@ -242,7 +256,6 @@ class FunctionalTests(unittest.TestCase):
         self._writefile(self._path('_sem', 'dir', 'f'), goldcontent)
         os.mkdir(self._path('dir'))
         self.assertRaises(OSError, os.rename, self._path('dir'), self._path('_sem', '_t1', 'dir'))
-
 
 
 def main():
