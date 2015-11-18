@@ -243,7 +243,7 @@ class SemanticFS(Operations):
                 raise FuseOSError(errno.ENOTSUP)
             else:
                 # Convert src dir to an entry point
-                # FIXME What if source dir contained an entry point?
+                # FIXME What if source dir contained an entry point? [FALLISCE]
                 os.rename(old_dspath, new_dspath)
                 semfolder = SemanticFolder(new.path)
                 for f in os.listdir(new_dspath):
@@ -255,7 +255,7 @@ class SemanticFS(Operations):
                 raise FuseOSError(errno.ENOTSUP)
             else:
                 # Convert src dir to a tag
-                # TODO Not specified
+                # TODO FALLISCE Se ci sono conflitti di nomi
                 raise FuseOSError(errno.ENOTSUP)
         elif new.is_tagged_object:
             # Move this obj to the destination entry point, then add the tags.
@@ -283,17 +283,17 @@ class SemanticFS(Operations):
         assert not is_file
         if new.is_standard_object:
             # Convert entry point to a standard folder
-            # TODO Not specified
+            # TODO OK, rimangono solo i file top-level e elimino i tag
             raise FuseOSError(errno.ENOTSUP)
         elif new.is_entrypoint:
             os.rename(old_dspath, new_dspath)
         elif new.is_tag:
             # Convert entry point to a tag
-            # TODO Not specified
+            # TODO FALLISCE... Ricreare il grafo è troppo faticoso
             raise FuseOSError(errno.ENOTSUP)
         elif new.is_tagged_object:
             # Convert entry point to a standard folder and tag it
-            # TODO Not specified
+            # TODO Vedere new.is_standard_object
             raise FuseOSError(errno.ENOTSUP)
         else:
             # Impossible!
@@ -322,7 +322,7 @@ class SemanticFS(Operations):
 
         elif new.is_entrypoint:
             # Convert tag to an entry point
-            # TODO Not specified
+            # TODO OK, copio i file che erano nel tag (solo i top-level) e faccio la rm del tag
             raise FuseOSError(errno.ENOTSUP)
 
         elif new.is_tag:
@@ -344,18 +344,18 @@ class SemanticFS(Operations):
                         self._save_semantic_folder(semfolder)
                     else:
                         # He's trying to move the tag from the root! Not permitted?
-                        # TODO Not specified
+                        # TODO Crea il link nel grafo
                         raise FuseOSError(errno.ENOTSUP)
 
                 elif old.tags[0:-1] != new.tags[0:-1] and old.tags[-1] != new.tags[-1]:
-                    # TODO Not specified
+                    # TODO OK! Rinomina e sposta
                     raise FuseOSError(errno.ENOTSUP)
 
                 else:
                     assert False, "Impossible destination"
             else:
                 # Not permitted?
-                # TODO Not specified
+                # TODO Ok, però fallisce se ci sono conflitti di nomi
                 raise FuseOSError(errno.ENOTSUP)
         elif new.is_tagged_object:
             # Convert tag to a standard folder and tag it
@@ -386,7 +386,7 @@ class SemanticFS(Operations):
                 raise FuseOSError(errno.ENOTSUP)
             else:
                 # Convert src dir to an entry point
-                # FIXME What if source dir contained an entry point?
+                # FIXME What if source dir contained an entry point? [FALLISCE]
                 self._extract_tagged_object(old, new)
                 semfolder = SemanticFolder(new.path)
                 for f in os.listdir(new_dspath):
@@ -399,7 +399,7 @@ class SemanticFS(Operations):
                 raise FuseOSError(errno.ENOTSUP)
             else:
                 # Convert src dir to a tag
-                # TODO Not specified
+                # TODO FALLISCE Se ci sono conflitti di nomi
                 raise FuseOSError(errno.ENOTSUP)
 
         elif new.is_tagged_object:
@@ -641,7 +641,7 @@ class SemanticFS(Operations):
         dspath = self._datastore_path(path)
         os.mknod(dspath, mode, dev)
 
-        # FIXME Should we allow files starting with the semantic prefix?
+        # FIXME Should we allow files starting with the semantic prefix? NO
         if not (pathinfo.is_tagged_object or pathinfo.is_standard_object):
             raise FuseOSError(errno.ENOTSUP)
 
@@ -816,9 +816,49 @@ class SemanticFS(Operations):
 
     def symlink(self, name, target):
         logger.debug("symlink(%s, %s)", name, target)
-        # FIXME Target name shouldn't start with _ if name isn't!!
-        # TODO Maybe we should make relative symlinks fail if done within a semdir
-        return os.symlink(target, self._datastore_path(name))
+
+        target_norm = os.path.normcase(os.path.normpath(target))
+        pathinfo_name = PathInfo(name)
+
+        if pathinfo_name.is_standard_object:
+            return os.symlink(target, self._datastore_path(name))
+
+        elif not os.path.isabs(target_norm) and len(target_norm.split(os.sep)) == 1 and \
+                pathinfo_name.is_tag and target_norm == pathinfo_name.tags[-1]:
+
+            # ln -s /_sem/_c /_sem/_a/_b/_c
+            if self._exists(os.path.join(pathinfo_name.entrypoint, target_norm)):
+                # Add the link to the tag
+                if len(pathinfo_name.tags) >= 2:
+                    semfolder = self._get_semantic_folder(pathinfo_name.entrypoint)
+                    semfolder.graph.add_arc(pathinfo_name.tags[-2], pathinfo_name.tags[-1])
+                    self._save_semantic_folder(semfolder)
+            else:
+                raise FuseOSError(errno.ENOENT)
+
+        elif not os.path.isabs(target_norm) and len(target_norm.split(os.sep)) == 1 and \
+                pathinfo_name.is_tagged_object and target_norm == pathinfo_name.tagged_object:
+
+            # Add the tags to the tagged object
+            if self._exists(os.path.join(pathinfo_name.entrypoint, target_norm)):
+                semfolder = self._get_semantic_folder(pathinfo_name.entrypoint)
+                assert semfolder.filetags.has_file(pathinfo_name.tagged_object)
+                semfolder.filetags.assign_tags(pathinfo_name.tagged_object, pathinfo_name.tags)
+                self._save_semantic_folder(semfolder)
+            else:
+                raise FuseOSError(errno.ENOENT)
+
+        elif pathinfo_name.is_tagged_object:
+            semfolder = self._get_semantic_folder(pathinfo_name.entrypoint)
+            if semfolder.filetags.has_file(pathinfo_name.tagged_object):
+                raise FuseOSError(errno.EEXIST)
+            else:
+                os.symlink(target, self._datastore_path(name))
+                semfolder.filetags.add_file(pathinfo_name.tagged_object, pathinfo_name.tags)
+            self._save_semantic_folder(semfolder)
+
+        else:
+            raise FuseOSError(errno.ENOTSUP)
 
     def rename(self, old, new):
         logger.debug("rename(%s, %s)", old, new)
@@ -944,7 +984,6 @@ class SemanticFS(Operations):
                 f.truncate(length)
 
     def flush(self, path, fh):
-        # TODO
         return os.fsync(fh)
 
     def release(self, path, fh):
@@ -958,7 +997,6 @@ class SemanticFS(Operations):
         return os.close(fh)
 
     def fsync(self, path, fdatasync, fh):
-        # TODO
         return self.flush(path, fh)
 
 
