@@ -98,7 +98,6 @@ class Graph:
         self._adjacency_in[to_node].remove(from_node)
 
     def incoming_arcs(self, node) -> list:
-        # FIXME Is this method (and self._adjacency_in) really necessary?
         if not self.has_node(node):
             raise ValueError('Node is missing')
 
