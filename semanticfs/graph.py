@@ -34,6 +34,12 @@ class Graph:
 
         assert isinstance(self._adjacency_out[name], set)
         assert isinstance(self._adjacency_in[name], set)
+
+        for node in self._adjacency_out[name]:
+            self._adjacency_in[node].remove(name)
+        for node in self._adjacency_in[name]:
+            self._adjacency_out[node].remove(name)
+
         del self._adjacency_out[name]
         del self._adjacency_in[name]
 
