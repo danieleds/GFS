@@ -17,7 +17,7 @@ class FilesTagsAssociation:
         else:
             raise ValueError('Serialized data is not valid')
 
-    def add_file(self, filename, tags = set()):
+    def add_file(self, filename, tags=set()):
         if filename in self._files:
             raise ValueError('File name already exists within the namespace')
 
@@ -98,5 +98,3 @@ class FilesTagsAssociation:
             if filetags.issuperset(tags):
                 lst.append(filename)
         return lst
-
-
