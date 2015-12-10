@@ -651,7 +651,7 @@ class SemanticFS(Operations):
         dspath = self._datastore_path(path)
         os.mknod(dspath, mode, dev)
 
-        # FIXME Should we allow files starting with the semantic prefix? NO
+        # Files starting with the semantic prefix are not allowed
         if not (pathinfo.is_tagged_object or pathinfo.is_standard_object):
             raise FuseOSError(errno.ENOTSUP)
 
@@ -925,7 +925,6 @@ class SemanticFS(Operations):
         if flags & (os.O_WRONLY | os.O_RDWR) != 0:
             pathinfo = PathInfo(path)
             if pathinfo.is_tagged_object:
-                # FIXME What if path == dspath??? Maybe already works, just check.
                 assert f not in self._sem_write_descriptors
                 self._sem_write_descriptors.add(f)
                 self._add_ghost_file(path)
@@ -948,12 +947,11 @@ class SemanticFS(Operations):
         f = os.open(dspath, os.O_WRONLY | os.O_CREAT, mode)
         logger.debug("create(%s, %s) -> %d", path, SemanticFS._stringify_open_flags(os.O_WRONLY | os.O_CREAT), f)
 
-        # FIXME Should we allow files starting with the semantic prefix?
+        # Files starting with the semantic prefix are not allowed
         if not (pathinfo.is_tagged_object or pathinfo.is_standard_object):
             raise FuseOSError(errno.ENOTSUP)
 
         if pathinfo.is_tagged_object:
-            # FIXME What if path == dspath??? Maybe already works, just check.
 
             assert f not in self._sem_write_descriptors
             self._sem_write_descriptors.add(f)
