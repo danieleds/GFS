@@ -386,7 +386,12 @@ class SemanticFS(Operations):
                 raise FuseOSError(errno.ENOTSUP)
             else:
                 # Convert src dir to an entry point
-                # FIXME What if source dir contained an entry point? [FALLISCE]
+
+                # Fails if source dir contains an entry point
+                for p in os.listdir(old_dspath):
+                    if not self._is_reserved_name(p) and PathInfo.is_semantic_name(p):
+                        raise FuseOSError(errno.ENOTSUP)
+
                 self._extract_tagged_object(old, new)
                 semfolder = SemanticFolder(new.path)
                 for f in os.listdir(new_dspath):
