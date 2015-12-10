@@ -399,8 +399,13 @@ class SemanticFS(Operations):
                 raise FuseOSError(errno.ENOTSUP)
             else:
                 # Convert src dir to a tag
-                # TODO FALLISCE Se ci sono conflitti di nomi
-                raise FuseOSError(errno.ENOTSUP)
+                if not os.listdir(old_dspath):  # Empty dir
+                    dir_mode = os.lstat(old_dspath).st_mode & 0o777
+                    self.mkdir(new.path, dir_mode)
+                    self.rmdir(old.path)
+                else:
+                    # TODO FALLISCE Se ci sono conflitti di nomi
+                    raise FuseOSError(errno.ENOTSUP)
 
         elif new.is_tagged_object:
             if same_semantic_space:
