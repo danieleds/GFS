@@ -243,7 +243,7 @@ class SemanticFS(Operations):
                 raise FuseOSError(errno.ENOTSUP)
             else:
                 # Convert src dir to an entry point
-                
+
                 # Fails if source dir contains an entry point
                 for p in os.listdir(old_dspath):
                     if not self._is_reserved_name(p) and PathInfo.is_semantic_name(p):
@@ -886,8 +886,6 @@ class SemanticFS(Operations):
 
         if self._is_reserved_name(os.path.basename(new)):
             raise FuseOSError(errno.EINVAL)
-
-        # FIXME What if dir is moved within itself?
 
         # if self._exists(new):
         #    raise FuseOSError(errno.EEXIST)
