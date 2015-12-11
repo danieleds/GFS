@@ -288,8 +288,14 @@ class SemanticFS(Operations):
         assert not is_file
         if new.is_standard_object:
             # Convert entry point to a standard folder
-            # TODO OK, rimangono solo i file top-level e elimino i tag
-            raise FuseOSError(errno.ENOTSUP)
+            # Only top-level files are kept. Tags are removed.
+            semfolder = self._get_semantic_folder(old.path)
+            os.rename(old_dspath, new_dspath)
+            os.unlink(os.path.join(new_dspath, self.SEMANTIC_FS_ASSOC_FILE_NAME))
+            os.unlink(os.path.join(new_dspath, self.SEMANTIC_FS_GRAPH_FILE_NAME))
+            for tag in semfolder.graph.nodes():
+                os.rmdir(os.path.join(new_dspath, tag))
+
         elif new.is_entrypoint:
             os.rename(old_dspath, new_dspath)
         elif new.is_tag:
