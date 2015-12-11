@@ -289,11 +289,11 @@ class SemanticFS(Operations):
         if new.is_standard_object:
             # Convert entry point to a standard folder
             # Only top-level files are kept. Tags are removed.
-            semfolder = self._get_semantic_folder(old.path)
+            oldsemfolder = self._get_semantic_folder(old.path)
             os.rename(old_dspath, new_dspath)
             os.unlink(os.path.join(new_dspath, self.SEMANTIC_FS_ASSOC_FILE_NAME))
             os.unlink(os.path.join(new_dspath, self.SEMANTIC_FS_GRAPH_FILE_NAME))
-            for tag in semfolder.graph.nodes():
+            for tag in oldsemfolder.graph.nodes():
                 os.rmdir(os.path.join(new_dspath, tag))
 
         elif new.is_entrypoint:
@@ -304,8 +304,23 @@ class SemanticFS(Operations):
             raise FuseOSError(errno.ENOTSUP)
         elif new.is_tagged_object:
             # Convert entry point to a standard folder and tag it
-            # TODO Vedere new.is_standard_object
-            raise FuseOSError(errno.ENOTSUP)
+            # Convert entry point to a standard folder
+            # Only top-level files are kept. Tags are removed.
+            semfolder = self._get_semantic_folder(new.entrypoint)
+
+            oldsemfolder = self._get_semantic_folder(old.path)
+            os.rename(old_dspath, new_dspath)  # Fails if new is an existing non-empty directory
+            os.unlink(os.path.join(new_dspath, self.SEMANTIC_FS_ASSOC_FILE_NAME))
+            os.unlink(os.path.join(new_dspath, self.SEMANTIC_FS_GRAPH_FILE_NAME))
+            for tag in oldsemfolder.graph.nodes():
+                os.rmdir(os.path.join(new_dspath, tag))
+
+            try:
+                semfolder.filetags.add_file(new.tagged_object, new.tags)
+            except ValueError:
+                semfolder.filetags.assign_tags(new.tagged_object, new.tags)
+            self._save_semantic_folder(semfolder)
+
         else:
             # Impossible!
             assert False, "Impossible destination"
