@@ -425,7 +425,7 @@ class SemanticFS(Operations):
                         raise FuseOSError(errno.ENOTSUP)
 
                 self._extract_tagged_object(old, new)
-                semfolder = SemanticFolder(new.path)
+                semfolder = SemanticFolder(new.entrypoint)
                 for f in os.listdir(new_dspath):
                     semfolder.filetags.add_file(f)
                 self._save_semantic_folder(semfolder)
@@ -436,13 +436,39 @@ class SemanticFS(Operations):
                 raise FuseOSError(errno.ENOTSUP)
             else:
                 # Convert src dir to a tag
-                if not os.listdir(old_dspath):  # Empty dir
+
+                # Fails if source dir contains an entry point
+                for p in os.listdir(old_dspath):
+                    if not self._is_reserved_name(p) and PathInfo.is_semantic_name(p):
+                        raise FuseOSError(errno.ENOTSUP)
+
+                srcfiles = os.listdir(old_dspath)
+                semfolder = SemanticFolder(new.entrypoint)
+                if set(srcfiles) & set(semfolder.filetags.files()):
+                    # Name conflict: fails
+                    raise FuseOSError(errno.ENOTSUP)
+                else:
+                    semfolder = self._get_semantic_folder(new.entrypoint)
                     dir_mode = os.lstat(old_dspath).st_mode & 0o777
                     self.mkdir(new.path, dir_mode)
+
+                    if not semfolder.graph.has_node(new.tags[-1]):
+                        semfolder.graph.add_node(new.tags[-1])
+                    if len(new.tags) > 1:
+                        semfolder.graph.add_arc(new.tags[-2], new.tags[-1])
+
+                    entrypoint_dspath = self._datastore_path(new.entrypoint)
+                    for f in srcfiles:
+                        file_dspath = os.path.join(old_dspath, f)
+                        if os.path.isfile(file_dspath):
+                            shutil.copy2(file_dspath, entrypoint_dspath)
+                        else:
+                            shutil.copytree(file_dspath, os.path.join(entrypoint_dspath, f))
+                        semfolder.filetags.add_file(f, new.tags)
+
+                    self._save_semantic_folder(semfolder)
+
                     self.rmdir(old.path)
-                else:
-                    # TODO FALLISCE Se ci sono conflitti di nomi
-                    raise FuseOSError(errno.ENOTSUP)
 
         elif new.is_tagged_object:
             if same_semantic_space:
