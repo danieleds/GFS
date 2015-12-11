@@ -342,15 +342,21 @@ class SemanticFS(Operations):
                     self._save_semantic_folder(semfolder)
 
                 elif old.tags[0:-1] != new.tags[0:-1] and old.tags[-1] == new.tags[-1]:
+                    if len(new.tags) < 2:
+                        # Moving to the root of the entry point, but is should be already there. Fail.
+                        raise FuseOSError(errno.EEXIST)
+
                     if len(old.tags) >= 2:
                         semfolder = self._get_semantic_folder(old.entrypoint)
                         semfolder.graph.remove_arc(old.tags[-2], old.tags[-1])
                         semfolder.graph.add_arc(new.tags[-2], new.tags[-1])
                         self._save_semantic_folder(semfolder)
                     else:
-                        # He's trying to move the tag from the root! Not permitted?
-                        # TODO Crea il link nel grafo
-                        raise FuseOSError(errno.ENOTSUP)
+                        # He's trying to move the tag from the root!
+                        # Create the link in the graph without touching the old path.
+                        semfolder = self._get_semantic_folder(old.entrypoint)
+                        semfolder.graph.add_arc(new.tags[-2], new.tags[-1])
+                        self._save_semantic_folder(semfolder)
 
                 elif old.tags[0:-1] != new.tags[0:-1] and old.tags[-1] != new.tags[-1]:
                     # TODO OK! Rinomina e sposta
