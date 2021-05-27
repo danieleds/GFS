@@ -14,6 +14,9 @@ GFS (graph-based file system) is a new hybrid file system that extends the stand
 
 Since GFS does not change the low-level interface to interact with file systems, users can continue to use their favorite file managers to interact with it. Moreover, no changes are required to integrate the semantic features in proprietary software.
 
+<img src="figure.png" width="262"></img>  
+A sample tree view of a semantic home directory that mixes standard directories with semantic spaces for music and working documents.
+
 ## Running
 
     pip3 install fusepy
